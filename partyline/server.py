@@ -26,7 +26,7 @@ load_allow_list = load_hash_list
 
 
 class Room:
-    def __init__(self, room_id, spec, default_profile, default_max_members):
+    def __init__(self, room_id, spec, default_profile, default_max_members, default_require_identity=False):
 
         self.id = room_id
         self.name = clean_name(spec.get("name"), f"Room {room_id}")
@@ -39,7 +39,7 @@ class Room:
         self.frame_ms = frame_ms(self.profile)
         self.password = spec.get("password") or None
 
-        self.require_identity = bool(spec.get("require_identity", False))
+        self.require_identity = bool(spec.get("require_identity", default_require_identity))
 
         if spec.get("allow") or spec.get("allowed_file"):
             self.allow = load_hash_list(spec.get("allow"), spec.get("allowed_file"))
@@ -209,10 +209,11 @@ class Server:
         if os.path.isfile(self.banned_file):
             self.banned = load_hash_list(path=self.banned_file)
 
+        self.require_identity = bool(config.get("require_identity", False))
         room_specs = config.get("rooms") or [{"name": "Lobby"}]
         self.rooms = {}
         for room_id, spec in enumerate(room_specs, 1):
-            self.rooms[room_id] = Room(room_id, spec, self.profile, self.max_members)
+            self.rooms[room_id] = Room(room_id, spec, self.profile, self.max_members, self.require_identity)
         self.default_room = self.rooms[1]
 
         self.members = {}  # keyed by either link or bridge if rnphone

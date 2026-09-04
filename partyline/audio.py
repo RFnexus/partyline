@@ -88,6 +88,7 @@ class Playout:
     HOLD_SECONDS = 1.0   # a member is still talking this long after its last frame
 
     FADE = 0.5           # gain applied per consecutive concealed frame
+    REPEAT_MAX_FRAME_MS = 100  
     
     MAX_GAP = 64         # missing frames we will will reserve slots for
 
@@ -281,7 +282,8 @@ class Playout:
                     member["pending_misses"] += 1  
 
 
-                if member["last"] is not None and member["misses"] <= 4:
+                repeatable = member["last"] is not None and member["misses"] <= 4 and self.frame_ms <= self.REPEAT_MAX_FRAME_MS
+                if repeatable:
                     frame = member["last"] * (self.FADE ** member["misses"])
                 else:
                     frame = np.zeros(self.shape, dtype="float32")

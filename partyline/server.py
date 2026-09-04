@@ -365,6 +365,13 @@ class Server:
             member.operator = member.identity is not None and member.identity.hash in self.operators
             member.admitted = True
 
+            if member.identity is not None:
+                for other in list(self.members.values()):
+                    same_identity = other.identity is not None and other.identity.hash == member.identity.hash
+                    if other is not member and other.admitted and same_identity:
+                        RNS.log(f"{other.label()} replaced by a new session, dropping the old one", RNS.LOG_NOTICE)
+                        self.evict(other)
+
             welcome = {
                 "name": self.name,
                 "sid": member.member_id,
@@ -425,6 +432,14 @@ class Server:
 
     def link_closed(self, link):
         self.remove_member(link)
+
+    def evict(self, member):
+        key = member.bridge if member.link is None else member.link
+        self.remove_member(key)
+        if member.link is not None and member.link.status == RNS.Link.ACTIVE:
+            member.link.teardown()
+        elif member.bridge is not None:
+            member.bridge.hangup()
 
     def remove_member(self, key):
         with self.lock:

@@ -1,0 +1,26 @@
+{
+  "name": "Example LXST server",
+  "motd": "Welcome to an example Partyline LXST server. Your MOTD here.",
+  "profile": "opus-high",
+  "max_members": 16,
+
+  "_comment_access": "An optional server-wide password, an allow list of identity hashes, or both. 'hidden' keeps the server out of browsers.",
+  "password": null,
+  "hidden": false,
+  "allow": [],
+  "allowed_file": null,
+
+  "_comment_ops": "Operators can kick, ban, mute, move and promote users from their client. More can be promoted at run time.",
+  "ops": ["0123456789abcdef0123456789abcdef"],
+
+  "_comment_dialin": "Answer rnphone calls to this server's identity hash and put callers in a room.",
+  "dialin": {"enabled": false, "room": "Lobby", "name": "phone", "allow": [], "gate_db": -50},
+
+  "rooms": [
+    {"name": "Lobby",   "description": "Open to everyone, default room"},
+    {"name": "Low bandwidth room",  "profile": "c2-1200", "description": "Low bitrate room for slow links"},
+    {"name": "Members", "require_identity": true, "description": "Any identified user"},
+    {"name": "Ops",     "allow": ["0123456789abcdef0123456789abcdef"], "description": "Allow-listed identities only"},
+    {"name": "Private", "password": "hunter2", "description": "Password protected", "max_members": 4}
+  ]
+}

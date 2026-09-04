@@ -1,0 +1,17 @@
+
+__pycache__/
+*.egg-info/
+build/
+dist/
+*.log
+
+demo_rns/
+docs/demo/*.wav
+docs/demo/*.mp3
+
+tests/rns/storage/
+tests/rns/state/
+tests/rns/identity_*
+tests/rns/server_identity
+tests/output/
+tests/

@@ -22,6 +22,13 @@ Requires Python 3.11 or newer, Reticulum, and LXST
     cd partyline
     pip install .
 
+Or install via `rngit` with:
+
+
+```
+git clone rns://4cf8a0651c4d73cacd0f93ac1d95e80a/public/partyline
+```
+
 For a system wide push to talk key, install the optional extra with:
 
     pip install ".[hotkeys]"
@@ -103,6 +110,7 @@ Server operators can also configure broadcast-only rooms for high quality music 
 ```
 {"name": "Broadcast", "profile": "music-med", "music": ["0123456789abcdef0123456789abcdef"], "description": "Music/broadcast room. Only listed identities may talk. Uses LXSTs Opus CELT profile"}
 ```
+<img width="1181" height="648" alt="Screenshot from 2026-09-05 17-07-35" src="https://github.com/user-attachments/assets/f124833b-cb31-453f-a91f-9e61a171624c" />
 
 An example Music Bot can be found under `bots/music_bot.py`
 

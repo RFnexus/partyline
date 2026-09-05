@@ -57,6 +57,22 @@ The server prints its destination hash for clients and with dial in enabled the 
 
     partyline-server --config server.json
 
+Available `--profile` codecs for rooms:
+
+- `opus-high`  - Opus voice, 16 kbps
+- `opus-med`   - Opus voice, 8 kbps
+- `opus-low`   - Opus voice, 6 kbps
+- `c2-3200`    - Codec2, 3200 bps
+- `c2-2400`    - Codec2, 2400 bps
+- `c2-1200`    - Codec2, 1200 bps
+- `c2-700`     - Codec2, 700 bps
+- `music-low`  - Opus music, 14 kbps
+- `music-med`  - Opus music, 28 kbps
+- `music-high` - Opus music, 56 kbps
+
+See `server_example.json` for a full list of options. 
+opus-high-med-low and the Codec2 modes are meant for voice, and music-high-med-low is meant for streaming music or broadcasting to a room. As a rule, use the highest bitrate your link can carry
+
 ### Install as a systemd unit
 
 To install as a systemd unit find the server command with `which partyline-server` then create `/etc/systemd/system/partyline.service`:
@@ -79,6 +95,16 @@ Then:
 
     sudo systemctl daemon-reload
     sudo systemctl enable --now partyline
+
+### Music/Broadcasting & Bots
+
+Server operators can also configure broadcast-only rooms for high quality music and audio using LXST's Opus CELT profiles. The options are `music-high`, `music-med`, and `music-low`.  Music rooms are a special type of room where only the listed identities can send audio. Add their identity hash, seperated by commas, in `music`
+
+```
+{"name": "Broadcast", "profile": "music-med", "music": ["0123456789abcdef0123456789abcdef"], "description": "Music/broadcast room. Only listed identities may talk. Uses LXSTs Opus CELT profile"}
+```
+
+An example Music Bot can be found under `bots/music_bot.py`
 
 
 

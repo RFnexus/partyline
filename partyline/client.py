@@ -25,10 +25,10 @@ MODES = ("ptt", "vox", "open")
 
 WELCOME_TIMEOUT = 10.0  # seconds after link establishment to hear back from the server
 
-PATH_WAIT = 20.0        # path request wait 
+PATH_WAIT = 20.0  # path request wait
 PATH_WAIT_MAX = 120.0
 
-SAMPLE_RATE = 48000 
+SAMPLE_RATE = 48000
 
 
 class CountingPacketizer(Packetizer):
@@ -68,6 +68,7 @@ class CountingPacketizer(Packetizer):
             self.packets += 1
             self.bytes += len(packet.raw)
             self.payload_bytes += len(frame)
+
 
 ### TESTING ###
 class PacedTone(LocalSource):
@@ -172,13 +173,9 @@ class AnalyzingSink(LocalSink):
         with self.lock:
             return len(self.queued) < self.MAX_QUEUED
 
-
-
     def handle_frame(self, frame, source=None):
         with self.lock:
             self.queued.append(frame)
-
-
 
     def _drain(self):
         next_frame_at = time.monotonic()
@@ -236,8 +233,6 @@ class Channel:
         return ", ".join(parts) or "open"
 
 
-
-
 class User:
     def __init__(
         self,
@@ -252,6 +247,7 @@ class User:
         operator=False,
         server_muted=False,
         text_only=False,
+        speaker=True,
     ):
         self.sid = member_id
         self.name = name
@@ -259,11 +255,12 @@ class User:
         self.room = room
         self.muted = muted
         self.deaf = deaf
-        self.hops = hops 
+        self.hops = hops
         self.rtt = rtt
         self.operator = operator
         self.server_muted = server_muted
         self.text_only = text_only
+        self.speaker = speaker
 
     def path_info(self):
         parts = []
@@ -293,8 +290,8 @@ class Config:
         self.text_only = False  # chat only mode
         self.force_profile = None  # Testing only do not use this for any client/server
         self.force_frame_ms = None
-        self.rx_jitter_ms = 0  # Testing only 
-        self.rx_loss = 0.0     # testing only
+        self.rx_jitter_ms = 0  # Testing only
+        self.rx_loss = 0.0  # testing only
         self.__dict__.update(overrides)
 
 
@@ -316,6 +313,7 @@ class Client:
         self.motd = ""
         self.my_sid = None
         self.my_room = None
+        self.can_speak_here = True
         self.synced = False
 
         self.channels = {}
@@ -380,7 +378,7 @@ class Client:
         me = self.me
         return bool(me and me.operator)
 
-### CONNECTION ###
+    ### CONNECTION ###
     def connect(self, destination_hash, room=None, password=None, server_password=None, timeout=20):
         self.state = "connecting"
         self.error = None
@@ -392,7 +390,6 @@ class Client:
             self.muted = True
             self.deaf = True
         threading.Thread(target=self._connect, args=(destination_hash, timeout), daemon=True).start()
-
 
     def path_wait_seconds(self):
         try:
@@ -482,11 +479,6 @@ class Client:
     @property
     def connected(self):
         return self.state == "connected"
-
-
-
-
-
 
     def packet(self, data, packet):
         self.inbox.put((data, packet))
@@ -643,8 +635,8 @@ class Client:
 
     def user(self, record):
         member_id, name, identity, room, muted, deaf = record[:6]
-        extras = list(record[6:]) + [None] * 5
-        hops, rtt, operator, server_muted, text_only = extras[:5]
+        extras = list(record[6:]) + [None] * 6
+        hops, rtt, operator, server_muted, text_only, speaker = extras[:6]
         if not (isinstance(identity, str) and len(identity) == 32):
             identity = None
         if not isinstance(room, int):
@@ -668,6 +660,7 @@ class Client:
             bool(operator),
             bool(server_muted),
             bool(text_only),
+            True if speaker is None else bool(speaker),
         )
         self.users[user.sid] = user
         if previous is None:
@@ -686,7 +679,8 @@ class Client:
             self.event("user_left", user)
 
     def room(self, record):
-        room_id, profile, frame_ms_value = record
+        room_id, profile, frame_ms_value = record[:3]
+        self.can_speak_here = bool(record[3]) if len(record) > 3 else True
         if isinstance(room_id, int):
             self.my_room = room_id
         else:
@@ -699,6 +693,7 @@ class Client:
             self.fail(f"room uses unknown profile {profile!r}")
             return
         self.configure(profile, int(frame_ms_value))
+        self.apply_mode()
         self.event("room", self.my_room)
 
     def handle_frame(self, member_id, frame, sequence=None):
@@ -765,7 +760,7 @@ class Client:
             for member_id, frame, sequence in pending:
                 self._audio(member_id, frame, sequence)
 
-### OUTGOING QUEUE ###
+    ### OUTGOING QUEUE ###
     def send(self, fields):
         if self.link and self.link.status == RNS.Link.ACTIVE:
             RNS.Packet(self.link, msgpack.packb(fields), create_receipt=False).send()
@@ -785,7 +780,6 @@ class Client:
             if user.name.lower() == name.strip().lower():
                 return user
         return None
-
 
     def set_gain(self, member_id, decibels):
         if decibels:
@@ -835,10 +829,7 @@ class Client:
             self.send({FIELD_STATE: [self.muted, self.deaf]})
         self.event("self_state")
 
-
-
-
-### AUDIO PIPELINE ###
+    ### AUDIO PIPELINE ###
     def configure(self, profile, frame_ms_value):
         if self.cfg.text_only:
             RNS.log(f"Chat only: not opening audio for {describe(profile)}", RNS.LOG_DEBUG)
@@ -963,7 +954,7 @@ class Client:
             self.gate.threshold = self.cfg.vad_db
             self.gate.hang = self.cfg.vad_hang
 
-### TX CONTROL ###
+    ### TX CONTROL ###
     def set_mode(self, mode):
         if mode not in MODES:
             raise ValueError(mode)
@@ -984,7 +975,7 @@ class Client:
             mode = "open"  # tone has no gate to drive
         elif self.cfg.wav and mode == "ptt":
             mode = "open"  # a file has nobody to press the key; vox still gates its silences
-        if self.muted:
+        if self.muted or not self.can_speak_here:
             self.packetizer.squelch()
         elif mode == "open" or (mode == "ptt" and self.ptt_down):
             self.packetizer.unsquelch()
@@ -1001,7 +992,7 @@ class Client:
             return self.gate.level
         return -120.0
 
-### STATS REPORTING ### 
+    ### STATS REPORTING ###
 
     def tx_totals(self):
         packetizer = self.packetizer
@@ -1092,9 +1083,7 @@ def add_common_args(parser):
     parser.add_argument("--vad-db", type=float, default=-45.0, help="voice gate threshold db")
     parser.add_argument("--vad-hang", type=float, default=0.4, help="seconds to keep sending after speech")
     parser.add_argument("--low-latency", action="store_true")
-    parser.add_argument(
-        "--jitter-ms", type=int, default=200, help="receive jitter in ms more = smoother, later"
-    )
+    parser.add_argument("--jitter-ms", type=int, default=200, help="receive jitter in ms more = smoother, later")
 
 
 def config_from_args(args):
@@ -1119,8 +1108,7 @@ def config_from_args(args):
     )
 
 
-
-### GC AND EVENT MISC ### 
+### GC AND EVENT MISC ###
 def tune_gc():
     import gc
 
@@ -1193,7 +1181,7 @@ def stdin_commands(client, stop):
     while True:
         line = sys.stdin.readline()
         if line == "":
-            return 
+            return
         line = line.strip()
         if not line:
             continue
@@ -1274,14 +1262,11 @@ def main():
     #     "--tone", type=float, default=None, help="send a test tone at this Hz instead of the microphone"
     # )
 
-
     parser.add_argument("--wav", default=None, metavar="FILE")
     parser.add_argument("--wav-loop", action="store_true")
     parser.add_argument("--null-audio", action="store_true")
 
-    parser.add_argument(
-        "--force-profile", choices=PROFILES.keys(), default=None
-    )
+    parser.add_argument("--force-profile", choices=PROFILES.keys(), default=None)
     parser.add_argument("--force-frame-ms", type=int, default=None)
     # parser.add_argument(
     #     "--rx-jitter-ms", type=int, default=0, help="testing: deliver received audio in bursts this far apart"
@@ -1309,7 +1294,7 @@ def main():
     except ValueError as error:
         parser.error(str(error))
 
-### INIT ###
+    ### INIT ###
     RNS.Reticulum(configdir=args.configdir)
     identity = load_identity(args.identity)
 

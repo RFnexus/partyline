@@ -43,9 +43,7 @@ ASPECT = "room"
 
 
 
-PROTOCOL_VERSION = (
-    1  
-)
+PROTOCOL_VERSION = 1
 
 CONFIG_DIR = os.path.expanduser("~/.config/partyline")
 
@@ -53,11 +51,11 @@ CONFIG_DIR = os.path.expanduser("~/.config/partyline")
 ### MSGPACK KEYS ###
 FIELD_FRAMES = 0x01     # codec header byte + encoded frame
 FIELD_SPEAKER = 0x02    # server -> client member id the frame came from
-FIELD_ROOM = 0x03       # server -> client: [room_id, profile, frame_ms] for the room you are now in | all None = no room
+FIELD_ROOM = 0x03       # server -> client: [room_id, profile, frame_ms, can_speak] for the room you are now in | all None = no room
 FIELD_HELLO = 0x05      # client -> server after link.identify: {"name", "room", "password", "server_password", "text_only", "muted", "deaf", "hops", "rtt", "ver"}
 FIELD_WELCOME = 0x06    # server -> client: {"name", "sid", "motd", "ver"}
 FIELD_CHANNEL = 0x07    # server -> client: [room_id, name, profile, frame_ms, access_flags, description, dialin_number]
-FIELD_USER = 0x08       # server -> client: [member_id, name, identity_hex, room_id, muted, deaf, hops, rtt_ms, operator, server_muted, text_only]
+FIELD_USER = 0x08       # server -> client: [member_id, name, identity_hex, room_id, muted, deaf, hops, rtt_ms, operator, server_muted, text_only, can_speak]
 FIELD_USER_LEFT = 0x09  # server -> client: member_id
 FIELD_MOVE = 0x0A       # client -> server: [room_id, password_or_None]
 FIELD_DENIED = 0x0B     # server -> client: [room_id_or_None, reason]
@@ -109,6 +107,9 @@ PROFILES = {
     "c2-2400": (Codec2, Codec2.CODEC2_2400, 200, "Codec2 2400 bps, 200 ms frames"),
     "c2-1200": (Codec2, Codec2.CODEC2_1200, 400, "Codec2 1200 bps, 400 ms frames"),
     "c2-700": (Codec2, Codec2.CODEC2_700C, 400, "Codec2 700 bps, 400 ms frames"),
+    "music-low": (Opus, Opus.PROFILE_AUDIO_LOW, 40, "Opus music 14 kbps, 40 ms frames"),
+    "music-med": (Opus, Opus.PROFILE_AUDIO_MEDIUM, 40, "Opus music 28 kbps, 40 ms frames"),
+    "music-high": (Opus, Opus.PROFILE_AUDIO_HIGH, 40, "Opus music 56 kbps, 40 ms frames"),
 }
 
 

@@ -5,6 +5,11 @@ build/
 dist/
 *.log
 
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/dictionaries
+.idea/**/shelf
+
 demo_rns/
 docs/demo/*.wav
 docs/demo/*.mp3

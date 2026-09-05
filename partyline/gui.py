@@ -1441,9 +1441,13 @@ class App:
         button_text = "Push to talk"
         if settings["ptt_key"]:
             button_text += f"  [{pretty_key(settings['ptt_key'])}]"
-        self.ptt_button.config(state="normal" if push_to_talk else "disabled", text=button_text)
 
         client = self.client
+        if client and not client.can_speak_here:
+            self.ptt_button.config(state="disabled", text="Listen only")
+        else:
+            self.ptt_button.config(state="normal" if push_to_talk else "disabled", text=button_text)
+
         if client:
             current_devices = (client.cfg.input, client.cfg.output, client.cfg.low_latency)
             wanted_devices = (settings["input"], settings["output"], settings["low_latency"])
@@ -1996,6 +2000,7 @@ class App:
         elif kind == "channel":
             self.tree_dirty = True
         elif kind == "room":
+            self.apply_settings()
             channel = client.channels.get(event[1])
             if channel:
                 self.log(f"Joined {channel.name} ({describe(channel.profile)}).", "sys")
@@ -2104,6 +2109,8 @@ class App:
             if client.connected and not focused.startswith(("ch", "u")):
                 if channel:
                     where = f", in {channel.name}: {describe(channel.profile)}"
+                    if not client.can_speak_here:
+                        where += " (listen only)"
                 else:
                     where = ", not in a room"
                 self.status_var.set(f"Connected to {client.server_name}{where}")

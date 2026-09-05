@@ -49,6 +49,10 @@ class Room:
 
 
         self.max_members = int(spec.get("max_members") or default_max_members)
+        if "music" in spec:
+            self.music_speakers = load_hash_list(spec.get("music"))
+        else:
+            self.music_speakers = None
         self.members = set()
 
 
@@ -79,6 +83,11 @@ class Room:
         if len(self.members) >= self.max_members:
             return "room is full"
         return None
+
+    def can_speak(self, member):
+        if self.music_speakers is None:
+            return True
+        return member.identity is not None and member.identity.hash in self.music_speakers
 
     def as_channel(self, dialin_number=None):
         return [self.id, self.name, self.profile, self.frame_ms, self.access, self.description, dialin_number]
@@ -112,6 +121,7 @@ class Member:
         self.operator = False
 
         self.text_only = False  # for keyboard only
+        self.speaker = True
 
         self.hops = None
         self.rtt = None
@@ -184,6 +194,7 @@ class Member:
             self.operator,
             self.server_muted,
             self.text_only,
+            self.speaker,
         ]
 
     def label(self):
@@ -408,7 +419,7 @@ class Server:
             if reason is not None:
                 self.send(member.link, {FIELD_DENIED: [room.id if room else None, reason]})
                 if room is self.default_room or self.enter(member, self.default_room, None) is not None:
-                    self.send(member.link, {FIELD_ROOM: [None, None, None]})
+                    self.send(member.link, {FIELD_ROOM: [None, None, None, True]})
 
             self.broadcast({FIELD_USER: member.as_user()})
             room_name = member.room.name if member.room else "no room"
@@ -420,7 +431,8 @@ class Server:
         if reason is not None:
             return reason
         member.set_room(room)
-        self.send(member.link, {FIELD_ROOM: [room.id, room.profile, room.frame_ms]})
+        member.speaker = room.can_speak(member)
+        self.send(member.link, {FIELD_ROOM: [room.id, room.profile, room.frame_ms, member.speaker]})
         return None
 
     def move(self, member, fields):
@@ -578,7 +590,7 @@ class Server:
 
     def relay(self, member, frame, raw_length, sequence=None):
         room = member.room
-        if room is None or member.server_muted:
+        if room is None or member.server_muted or not member.speaker:
             return
         if not member.allow_packet():
             member.limited_frames += 1

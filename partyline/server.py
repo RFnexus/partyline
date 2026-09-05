@@ -16,6 +16,7 @@ from .common import *
 HELLO_TIMEOUT = 25.0    # seconds a new link has to send FIELD_HELLO before it is dropped
 IDENTITY_GRACE = 2.0    # seconds to wait for link.identify to land when a join needs the identity
 TEXT_RATE = 4.0         # text messages per second per member
+CONTROL_RATE = 6.0      # membership and mute/deafen changes per second limit
 DENY_CLOSE_DELAY = 0.5  # grace to let the FIELD_DENIED packet leave before tearing the link down 
 
 OPERATORS_FILENAME = "operators.txt" #
@@ -115,6 +116,7 @@ class Member:
         self.hops = None
         self.rtt = None
         self.admitted = False
+        self.hello_started = False
         self.joined_at = time.time()
         self.rejected_frames = 0
         self.limited_frames = 0
@@ -125,6 +127,8 @@ class Member:
         self.last_refill = time.time()
         self.text_tokens = TEXT_RATE
         self.text_last_refill = time.time()
+        self.control_tokens = CONTROL_RATE
+        self.control_last_refill = time.time()
 
     def set_room(self, room):
         if self.room:
@@ -153,6 +157,15 @@ class Member:
         self.text_last_refill = now
         if self.text_tokens >= 1:
             self.text_tokens -= 1
+            return True
+        return False
+
+    def allow_control(self):
+        now = time.time()
+        self.control_tokens = min(CONTROL_RATE, self.control_tokens + (now - self.control_last_refill) * CONTROL_RATE)
+        self.control_last_refill = now
+        if self.control_tokens >= 1:
+            self.control_tokens -= 1
             return True
         return False
 
@@ -411,6 +424,8 @@ class Server:
         return None
 
     def move(self, member, fields):
+        if not member.allow_control():
+            return
         try:
             room_id = fields[0]
             password = fields[1]
@@ -538,7 +553,11 @@ class Server:
             return
         if not member.admitted:
             if FIELD_HELLO in fields:
-                threading.Thread(target=self.hello, args=(member, fields[FIELD_HELLO]), daemon=True).start()
+                with self.lock:
+                    already = member.hello_started
+                    member.hello_started = True
+                if not already:
+                    threading.Thread(target=self.hello, args=(member, fields[FIELD_HELLO]), daemon=True).start()
             return
 
         if FIELD_FRAMES in fields:
@@ -629,6 +648,8 @@ class Server:
             self.send(target.link, {FIELD_POKE: [member.member_id, text]})
 
     def state(self, member, fields):
+        if not member.allow_control():
+            return
         try:
             muted = bool(fields[0])
             deaf = bool(fields[1])

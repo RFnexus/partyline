@@ -19,6 +19,26 @@ RING_TIMEOUT = 30.0  # seconds a link may sit unidentified before it is dropped
 SAMPLE_RATE = 48000
 
 
+def telephony_profile(room_profile):
+    codec_class, codec_argument, room_frame_ms = PROFILES[room_profile][:3]
+    fallback = None
+    for candidate in Profiles.available_profiles():
+        codec = Profiles.get_codec(candidate)
+        if not isinstance(codec, codec_class):
+            continue
+        if codec_class is Opus:
+            argument = getattr(codec, "profile", None)
+        else:
+            argument = getattr(codec, "mode", None)
+        if argument != codec_argument:
+            continue
+        if Profiles.get_frame_time(candidate) == room_frame_ms:
+            return candidate
+        if fallback is None:
+            fallback = candidate
+    return fallback
+
+
 class _Endpoint:
 
 
@@ -199,6 +219,9 @@ class Call:
         self.state = "established"
         self.started_at = time.time()
         self.signal(Signalling.STATUS_ESTABLISHED)
+        preferred = telephony_profile(self.room.profile)
+        if preferred is not None:
+            self.signal(Signalling.PREFERRED_PROFILE + preferred)
         RNS.log(f"Dial-in: {self.label()} connected to {self.room.name} as {name}", RNS.LOG_NOTICE)
 
     def handle_signals(self, signals):

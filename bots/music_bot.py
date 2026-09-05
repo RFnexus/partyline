@@ -35,6 +35,9 @@ LIST_LIMIT = 280
 HEADROOM = 0.8
 
 
+RECONNECT_SECONDS = 5
+
+
 def find_tracks(folder):
     found = []
     for pattern in ("*.mp3", "*.MP3"):
@@ -195,7 +198,7 @@ class MusicPlayer:
                 packetizer.start()
                 started_packetizer = packetizer
 
-            if not self.playing or self.codec is None or self.frame_samples is None:
+            if not self.playing or self.codec is None or self.frame_samples is None or packetizer is None:
                 if packetizer is not None and not packetizer.squelched:
                     packetizer.squelch()
                 time.sleep(0.05)
@@ -310,41 +313,46 @@ def main():
     player = MusicPlayer(client, folder, gain=args.gain)
     print(f"{len(player.tracks)} track(s) in {folder}", flush=True)
 
-    client.connect(server_hash, room=args.room, password=args.password, server_password=args.server_password)
-
-    greeted = False
     try:
+        while True:
+            client.connect(server_hash, room=args.room, password=args.password, server_password=args.server_password)
 
-        while client.state != "closed":
+            greeted = False
+            while client.state != "closed":
+                while client.events:
+                    event = client.events.popleft()
+                    kind = event[0]
+                    if kind == "connected":
+                        print(f"connected to {client.server_name!r}", flush=True)
+                    elif kind == "room" and event[1] is not None:
+                        player.bind()
+                        channel = client.channels.get(event[1])
+                        print(f"in room {channel.name if channel else event[1]}", flush=True)
+                        if not greeted:
+                            greeted = True
+                            if not client.can_speak_here:
+                                print("warning: not a speaker in this room", flush=True)
+                                client.send_text("I'm not allowed to talk in this room. If you are the op add my identity hash to music:[] in your server config")
+                            client.send_text(f"Music Bot ready, {len(player.tracks)} track(s). say {args.prefix}help")
+                            if args.autoplay and client.can_speak_here:
+                                player.play(None)
+                    elif kind == "text":
+                        sender = event[1]
+                        if getattr(sender, "sid", None) != client.my_sid:
+                            handle_command(client, player, args.prefix, event[2])
+                    elif kind == "denied":
+                        print(f"denied: {event[2]}", flush=True)
+                    elif kind in ("error", "closed"):
+                        print(f"{kind}: {event[1]}", flush=True)
+                if client.error and client.state == "idle":
+                    break
+                time.sleep(0.1)
 
-            while client.events:
-                event = client.events.popleft()
-                kind = event[0]
-                if kind == "connected":
-                    print(f"connected to {client.server_name!r}", flush=True)
-                elif kind == "room" and event[1] is not None:
-                    player.bind()
-                    channel = client.channels.get(event[1])
-                    print(f"in room {channel.name if channel else event[1]}", flush=True)
-                    if not greeted:
-                        greeted = True
-                        if not client.can_speak_here:
-                            print("warning: not a speaker in this room", flush=True)
-                            client.send_text("I'm not allowed to talk here; add my identity to the room's music list")
-                        client.send_text(f"Music Bot ready, {len(player.tracks)} track(s). say {args.prefix}help")
-                        if args.autoplay and client.can_speak_here:
-                            player.play(None)
-                elif kind == "text":
-                    sender = event[1]
-                    if getattr(sender, "sid", None) != client.my_sid:
-                        handle_command(client, player, args.prefix, event[2])
-                elif kind == "denied":
-                    print(f"denied: {event[2]}", flush=True)
-                elif kind in ("error", "closed"):
-                    print(f"{kind}: {event[1]}", flush=True)
-            if client.error and client.state == "idle":
+            client.disconnect()
+            if client.kicked:
                 break
-            time.sleep(0.1)
+            print(f"disconnected, reconnecting in {RECONNECT_SECONDS}s", flush=True)
+            time.sleep(RECONNECT_SECONDS)
     except KeyboardInterrupt:
         pass
 

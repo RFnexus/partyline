@@ -212,6 +212,9 @@ class Server:
 
         self.name = clean_name(config.get("name"), "Partyline server")
         self.motd = clean_text(config.get("motd", ""), MAX_TEXT)
+        self.description = clean_text(config.get("description", ""), MAX_ANNOUNCE_DESCRIPTION)
+        self.language = clean_text(config.get("language", ""), MAX_LOCALE)
+        self.country = clean_text(config.get("country", ""), MAX_LOCALE)
 
         self.profile = config.get("profile", "opus-high")
 
@@ -256,8 +259,12 @@ class Server:
         self.tx_bytes = 0
 
         self.destination = RNS.Destination(identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, ASPECT)
-        announced_name = "" if self.hidden else self.name  # a hidden server announces no name at all
-        self.destination.set_default_app_data(pack_announce(announced_name, self.announce_flags()))
+        if self.hidden:
+            self.destination.set_default_app_data(pack_announce("", self.announce_flags()))
+        else:
+            self.destination.set_default_app_data(
+                pack_announce(self.name, self.announce_flags(), self.description, self.language, self.country)
+            )
         self.destination.set_link_established_callback(self.link_established)
 
         # queue

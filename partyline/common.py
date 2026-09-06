@@ -97,6 +97,8 @@ MAX_FRAME_BYTES = 400
 MAX_NAME = 48
 MAX_TEXT = 300
 MAX_DESCRIPTION = 120
+MAX_ANNOUNCE_DESCRIPTION = 100
+MAX_LOCALE = 16
 
 # codec class, codec argument, frame ms, description
 PROFILES = {
@@ -262,8 +264,18 @@ def save_hash_list(path, hashes):
 
 
 
-def pack_announce(server_name, flags=0):
-    return msgpack.packb([PROTOCOL_VERSION, server_name, int(flags)])
+def pack_announce(server_name, flags=0, description="", language="", country=""):
+    fields = [
+        PROTOCOL_VERSION,
+        server_name,
+        int(flags),
+        clean_text(description, MAX_ANNOUNCE_DESCRIPTION),
+        clean_text(language, MAX_LOCALE),
+        clean_text(country, MAX_LOCALE),
+    ]
+    while len(fields) > 3 and not fields[-1]:
+        fields.pop()
+    return msgpack.packb(fields)
 
 
 
@@ -279,7 +291,17 @@ def unpack_announce(app_data):
     flags = 0
     if len(unpacked) > 2 and isinstance(unpacked[2], int):
         flags = unpacked[2]
-    return {"name": clean_name(name, "") or None, "flags": flags, "version": version}
+    description = clean_text(unpacked[3], MAX_ANNOUNCE_DESCRIPTION) if len(unpacked) > 3 else ""
+    language = clean_text(unpacked[4], MAX_LOCALE) if len(unpacked) > 4 else ""
+    country = clean_text(unpacked[5], MAX_LOCALE) if len(unpacked) > 5 else ""
+    return {
+        "name": clean_name(name, "") or None,
+        "flags": flags,
+        "version": version,
+        "description": description,
+        "language": language,
+        "country": country,
+    }
 
 
 def is_room_destination(destination_hash, identity):

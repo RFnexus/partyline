@@ -191,6 +191,9 @@ class Discovery:
                 "hash": destination_hash,
                 "flags": flags,
                 "version": announced.get("version"),
+                "description": announced.get("description") or "",
+                "language": announced.get("language") or "",
+                "country": announced.get("country") or "",
             }
 
     def flags_for(self, hash_hex):
@@ -417,17 +420,34 @@ class ConnectDialog(Dialog):
         ttk.Scrollbar(favourites_tab, command=self.favourites.yview).pack(side="right", fill="y")
         self.favourites.bind("<Double-1>", lambda event: self.connect())
 
+        filter_frame = ttk.Frame(discovered_tab)
+        filter_frame.pack(side="top", fill="x", pady=(0, 4))
+        ttk.Label(filter_frame, text="Filter").pack(side="left")
+        self.discovered_filter = tk.StringVar()
+        ttk.Entry(filter_frame, textvariable=self.discovered_filter).pack(side="left", fill="x", expand=True, padx=(6, 0))
+        self.discovered_filter.trace_add("write", lambda *event: self.refresh_discovered())
+        self.discovered_descriptions = {}
+        self.discovered_tip = None
+        self.discovered_tip_row = None
+
         self.discovered = ttk.Treeview(
-            discovered_tab, columns=("name", "hash", "seen"), show="tree headings", selectmode="browse"
+            discovered_tab, columns=("name", "hash", "locale", "seen"), show="tree headings", selectmode="browse"
         )
         self.discovered.heading("#0", text="")
         self.discovered.column("#0", width=28, stretch=False)
-        for column, heading, width in (("name", "Server", 160), ("hash", "Address", 250), ("seen", "Last seen", 90)):
+        for column, heading, width in (
+            ("name", "Server", 160),
+            ("hash", "Address", 210),
+            ("locale", "Locale", 70),
+            ("seen", "Last seen", 80),
+        ):
             self.discovered.heading(column, text=heading)
             self.discovered.column(column, width=width, anchor="w")
         self.discovered.pack(side="left", fill="both", expand=True)
         ttk.Scrollbar(discovered_tab, command=self.discovered.yview).pack(side="right", fill="y")
         self.discovered.bind("<Double-1>", lambda event: self.connect())
+        self.discovered.bind("<Motion>", self.discovered_hover)
+        self.discovered.bind("<Leave>", lambda event: self.hide_discovered_tip())
 
         buttons = ttk.Frame(self, padding=(10, 4, 10, 10))
         buttons.pack(fill="x")
@@ -472,10 +492,25 @@ class ConnectDialog(Dialog):
     def tick(self):
         if not self.winfo_exists():
             return
+        self.refresh_discovered()
+        self.after(1000, self.tick)
+
+    def refresh_discovered(self):
+        if not self.winfo_exists():
+            return
         selected = self.discovered.selection()
         now = time.time()
+        query = self.discovered_filter.get().strip().lower()
         self.discovered.delete(*self.discovered.get_children())
+        self.discovered_descriptions = {}
         for server in self.app.discovery.snapshot():
+            language = server.get("language") or ""
+            country = server.get("country") or ""
+            description = server.get("description") or ""
+            name = server["name"]
+            haystack = " ".join([name, language, country, description]).lower()
+            if query and query not in haystack:
+                continue
             age = now - server["seen"]
             if age < 90:
                 ago = f"{int(age)} s"
@@ -485,13 +520,47 @@ class ConnectDialog(Dialog):
                 ago = f"{int(age / 3600)} h"
             hash_hex = server["hash"].hex()
             icon = self.app.server_icon(server["flags"], False)
-            name = server["name"]
             if server.get("version") != PROTOCOL_VERSION:
                 name += "  (different version)"
-            self.discovered.insert("", "end", iid=hash_hex, values=(name, hash_hex, ago), image=icon)
+            locale = " / ".join(part for part in (language, country) if part)
+            self.discovered.insert("", "end", iid=hash_hex, values=(name, hash_hex, locale, ago), image=icon)
+            if description:
+                self.discovered_descriptions[hash_hex] = description
         if selected and self.discovered.exists(selected[0]):
             self.discovered.selection_set(selected[0])
-        self.after(1000, self.tick)
+
+    def discovered_hover(self, event):
+        row = self.discovered.identify_row(event.y)
+        if row == self.discovered_tip_row:
+            return
+        self.hide_discovered_tip()
+        self.discovered_tip_row = row
+        description = self.discovered_descriptions.get(row)
+        if not description:
+            return
+        self.discovered_tip = tk.Toplevel(self.discovered)
+        self.discovered_tip.wm_overrideredirect(True)
+        tk.Label(
+            self.discovered_tip,
+            text=description,
+            justify="left",
+            background=self.app.palette["field"],
+            foreground=self.app.palette["fg"],
+            relief="solid",
+            borderwidth=1,
+            padx=5,
+            pady=3,
+            wraplength=320,
+        ).pack()
+        self.discovered_tip.wm_geometry(
+            f"+{self.discovered.winfo_rootx() + event.x + 14}+{self.discovered.winfo_rooty() + event.y + 16}"
+        )
+
+    def hide_discovered_tip(self):
+        if self.discovered_tip is not None:
+            self.discovered_tip.destroy()
+            self.discovered_tip = None
+        self.discovered_tip_row = None
 
     def selected_favourite(self):
         selected = self.favourites.selection()
@@ -937,6 +1006,7 @@ class PokeWindow(tk.Toplevel):
 class ServerInfoDialog(tk.Toplevel):
     def __init__(self, app, client):
         super().__init__(app.root)
+        self.app = app
         self.title("Server Information")
         self.transient(app.root)
         self.minsize(640, 420)
@@ -969,6 +1039,7 @@ class ServerInfoDialog(tk.Toplevel):
             table.heading(column, text=heading)
             anchor = "center" if column in ("users", "dialin") else "w"
             table.column(column, width=width, anchor=anchor, stretch=(column == "description"))
+        self.dialin_numbers = {}
         for channel in sorted(client.channels.values(), key=lambda entry: entry.id):
             user_count = sum(1 for user in client.users.values() if user.room == channel.id)
             dialin = channel.dialin_number or ""
@@ -980,7 +1051,11 @@ class ServerInfoDialog(tk.Toplevel):
                 dialin,
                 channel.description,
             )
-            table.insert("", "end", values=values)
+            table.insert("", "end", iid=str(channel.id), values=values)
+            if channel.dialin_number:
+                self.dialin_numbers[str(channel.id)] = channel.dialin_number
+        self.table = table
+        table.bind("<Button-3>", self.room_menu)
         table.pack(side="left", fill="both", expand=True)
         ttk.Scrollbar(table_frame, command=table.yview).pack(side="right", fill="y")
 
@@ -1011,6 +1086,15 @@ class ServerInfoDialog(tk.Toplevel):
         ttk.Button(buttons, text="Close", command=self.destroy).pack(side="right")
         self.bind("<Escape>", lambda event: self.destroy())
         self.geometry(f"+{app.root.winfo_rootx() + 40}+{app.root.winfo_rooty() + 40}")
+
+    def room_menu(self, event):
+        number = self.dialin_numbers.get(self.table.identify_row(event.y))
+        if not number:
+            return
+        menu = tk.Menu(self, tearoff=0)
+        menu.add_command(label=f"Dial-in number: {number}", state="disabled")
+        menu.add_command(label="Copy dial-in number", command=lambda: self.app.copy_to_clipboard(number))
+        menu.tk_popup(event.x_root, event.y_root)
 
 
 class AboutDialog(tk.Toplevel):

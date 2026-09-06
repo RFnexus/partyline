@@ -30,25 +30,48 @@ PATH_WAIT_MAX = 120.0
 
 SAMPLE_RATE = 48000
 
+BATCH_BASE_COST = 8
+BATCH_MARGIN = 16
+FILL_MAX_MS = 2500
+MAX_JITTER_MS = 30000
+PTT_PREROLL_MS = 250
+PTT_HANG_MS = 250
+
 
 class CountingPacketizer(Packetizer):
-    def __init__(self, link, profile_name):
+    def __init__(self, link, profile_name, frames_per_packet=1, fill_mtu=False, fill_max_ms=FILL_MAX_MS):
         super().__init__(link)
         self.header = codec_byte(profile_name)
+        self.frame_ms = frame_ms(profile_name)
+        self.fill_max_ms = fill_max_ms
         self.squelched = True
         self.sequence = 0
         self.packets = 0
         self.bytes = 0
         self.payload_bytes = 0
+        self.frames_per_packet = max(1, min(MAX_BATCH, int(frames_per_packet)))
+        self.fill_mtu = bool(fill_mtu)
+        self.pending = []
+        self.pending_payload = 0
+        self.pending_packed = 0
+        self.edge_guard = False  # preroll_ms guard
+        self.preroll = collections.deque(maxlen=max(1, round(PTT_PREROLL_MS / max(1, self.frame_ms))))
+
+    def link_ready(self):
+        return type(self.destination) == RNS.Link and self.destination.status == RNS.Link.ACTIVE
 
     def squelch(self):
-        if not self.squelched and self.destination.status == RNS.Link.ACTIVE:
+        if not self.squelched and self.link_ready():
+            self.flush()
             # tell the room the spurt is over so we don't conceal a pause from members
             RNS.Packet(self.destination, msgpack.packb({FIELD_TALK_END: True}), create_receipt=False).send()
         self.squelched = True
+        self.pending = []
+        self.pending_payload = 0
+        self.pending_packed = 0
 
     def unsquelch(self):
-        self.squelched = False
+        self.squelched = False  # the next captured frame (on the ingest thread) will replay the pre-roll first
 
     def start(self):
         if hasattr(Packetizer, "start"):
@@ -58,16 +81,65 @@ class CountingPacketizer(Packetizer):
         if hasattr(Packetizer, "stop"):
             super().stop()
 
+    def max_payload(self):
+        getter = getattr(self.destination, "get_mdu", None)
+        mdu = getter() if getter else None
+        if not mdu:
+            mdu = RNS.Link.MDU
+        return mdu - BATCH_MARGIN
+
+    def target_count(self):
+        if not self.fill_mtu:
+            return self.frames_per_packet
+        by_latency = max(1, self.fill_max_ms // max(1, self.frame_ms))
+        return min(MAX_BATCH, by_latency)
+
     def handle_frame(self, frame, source=None):
-        if self.squelched or self.destination.status != RNS.Link.ACTIVE:
+        if not self.link_ready():
             return
-        self.sequence = (self.sequence + 1) & 0xFFFF
-        data = msgpack.packb({FIELD_FRAMES: self.header + frame, FIELD_SEQ: self.sequence})
+        item = self.header + frame
+        if self.squelched:
+            if self.edge_guard:
+                self.preroll.append(item)  # hold the most recent frames while idle
+            return
+        if self.edge_guard and self.preroll:
+            buffered = list(self.preroll)
+            self.preroll.clear()
+            for old_item in buffered:
+                self._ingest(old_item, len(old_item) - 1)
+        self._ingest(item, len(frame))
+
+    def _ingest(self, item, frame_length):
+        item_cost = len(item) + 3
+        if self.pending and BATCH_BASE_COST + self.pending_packed + item_cost > self.max_payload():
+            self.flush()
+        self.pending.append(item)
+        self.pending_packed += item_cost
+        self.pending_payload += frame_length
+        if len(self.pending) >= self.target_count():
+            self.flush()
+
+    def flush(self):
+        if not self.pending or not self.link_ready():
+            self.pending = []
+            self.pending_payload = 0
+            self.pending_packed = 0
+            return
+        base = (self.sequence + 1) & 0xFFFF
+        self.sequence = (self.sequence + len(self.pending)) & 0xFFFF
+        if len(self.pending) == 1:
+            payload = self.pending[0]
+        else:
+            payload = list(self.pending)
+        data = msgpack.packb({FIELD_FRAMES: payload, FIELD_SEQ: base})
         packet = RNS.Packet(self.destination, data, create_receipt=False)
         if packet.send() is not False:
             self.packets += 1
             self.bytes += len(packet.raw)
-            self.payload_bytes += len(frame)
+            self.payload_bytes += self.pending_payload
+        self.pending = []
+        self.pending_payload = 0
+        self.pending_packed = 0
 
 
 ### TESTING ###
@@ -209,7 +281,7 @@ class AnalyzingSink(LocalSink):
 
 
 class Channel:
-    def __init__(self, room_id, name, profile, frame_ms, access, description, dialin_number=None):
+    def __init__(self, room_id, name, profile, frame_ms, access, description, dialin_number=None, ptt_jitter_ms=0):
         self.id = room_id
         self.name = name
         self.profile = profile
@@ -217,6 +289,11 @@ class Channel:
         self.access = access
         self.description = description
         self.dialin_number = dialin_number  # rnphone / lxst clients can call this to land in the room
+        self.ptt_jitter_ms = int(ptt_jitter_ms or 0)
+
+    @property
+    def ptt(self):
+        return self.ptt_jitter_ms > 0
 
     @property
     def locked(self):
@@ -278,7 +355,12 @@ class Config:
         self.mode = "ptt"
         self.vad_db = -45.0
         self.vad_hang = 0.4
+        self.tx_gain_db = 0.0
+        self.mic_agc = False
         self.jitter_ms = 200
+        self.frames_per_packet = 1
+        self.fill_mtu = False
+        self.max_jitter = False
         self.input = None
         self.output = None
         self.low_latency = False
@@ -314,6 +396,8 @@ class Client:
         self.my_sid = None
         self.my_room = None
         self.can_speak_here = True
+        self.ptt_room = False
+        self.ptt_jitter_ms = 0
         self.synced = False
 
         self.channels = {}
@@ -325,9 +409,11 @@ class Client:
 
         self.packetizer = None
         self.gate = None
+        self.conditioner = None
         self.playout = None
         self.out_sink = None
         self.tx_pipe = None
+        self._ptt_hang_timer = None
         self.audio_profile = None
         self.frame_ms = None
         self.expected_samples = None
@@ -540,9 +626,11 @@ class Client:
         if FIELD_WELCOME in fields:
             self.welcome(fields[FIELD_WELCOME])
         if FIELD_CHANNEL in fields:
-            self.channel(fields[FIELD_CHANNEL])
+            for record in record_batch(fields[FIELD_CHANNEL]):
+                self.channel(record)
         if FIELD_USER in fields:
-            self.user(fields[FIELD_USER])
+            for record in record_batch(fields[FIELD_USER]):
+                self.user(record)
         if FIELD_USER_LEFT in fields:
             self.user_left(fields[FIELD_USER_LEFT])
         if FIELD_SYNCED in fields:
@@ -577,17 +665,20 @@ class Client:
             self.rx_packets += 1
             self.rx_bytes += len(packet.raw) if packet.raw else len(data)
             member_id = int(fields.get(FIELD_SPEAKER, 0))
-            frame = fields[FIELD_FRAMES]
+            payload = fields[FIELD_FRAMES]
             sequence = fields.get(FIELD_SEQ)
             if not isinstance(sequence, int) or not 0 <= sequence <= 0xFFFF:
                 sequence = None
-            if self.cfg.rx_loss and random.random() < self.cfg.rx_loss:
-                return
-            if self.cfg.rx_jitter_ms:
-                with self._burst_lock:
-                    self._burst.append((member_id, frame, sequence))
-            else:
-                self._audio(member_id, frame, sequence)
+            batch = payload if isinstance(payload, list) else [payload]
+            for offset, frame in enumerate(batch[:MAX_BATCH]):
+                if self.cfg.rx_loss and random.random() < self.cfg.rx_loss:
+                    continue
+                seq = None if sequence is None else (sequence + offset) & 0xFFFF
+                if self.cfg.rx_jitter_ms:
+                    with self._burst_lock:
+                        self._burst.append((member_id, frame, seq))
+                else:
+                    self._audio(member_id, frame, seq)
 
     def welcome(self, welcome):
         server_protocol = welcome.get("ver")
@@ -616,6 +707,7 @@ class Client:
     def channel(self, record):
         room_id, name, profile, frame_ms_value, access, description = record[:6]
         dialin_number = record[6] if len(record) > 6 else None
+        ptt_jitter_ms = record[7] if len(record) > 7 and isinstance(record[7], int) else 0
         if profile not in PROFILES:
             self.event("error", f"room {name!r} uses unknown profile {profile!r}")
             return
@@ -629,6 +721,7 @@ class Client:
             int(access),
             clean_text(description, MAX_DESCRIPTION),
             dialin_number,
+            ptt_jitter_ms,
         )
         self.channels[channel.id] = channel
         self.event("channel", channel)
@@ -686,13 +779,19 @@ class Client:
         else:
             self.my_room = None
         if self.my_room is None:
+            self.ptt_room = False
+            self.ptt_jitter_ms = 0
             self.stop_audio()
             self.event("room", None)
             return
         if profile not in PROFILES:
             self.fail(f"room uses unknown profile {profile!r}")
             return
+        channel = self.channels.get(self.my_room)
+        self.ptt_room = bool(channel and channel.ptt)
+        self.ptt_jitter_ms = channel.ptt_jitter_ms if self.ptt_room else 0
         self.configure(profile, int(frame_ms_value))
+        self.apply_transport()
         self.apply_mode()
         self.event("room", self.my_room)
 
@@ -863,23 +962,26 @@ class Client:
         else:
             self.out_sink = LineSink(preferred_device=self.cfg.output, low_latency=self.cfg.low_latency)
         sink_rate = getattr(self.out_sink, "samplerate", None) or SAMPLE_RATE
-        self.playout = Playout(frame_ms_value, self.jitter_frames(frame_ms_value), self.out_sink, sink_rate)
+        max_depth = MAX_JITTER_MS if self.cfg.max_jitter else None
+        self.playout = Playout(frame_ms_value, self.jitter_frames(frame_ms_value), self.out_sink, sink_rate, max_depth)
         self.playout.start()
         if self.cfg.rx_jitter_ms:
             threading.Thread(target=self._burst_job, daemon=True).start()
 
         # transmit: microphone or tone -> gate -> codec -> packets
-        self.packetizer = CountingPacketizer(self.link, profile)
+        fill_max = MAX_JITTER_MS if self.cfg.max_jitter else FILL_MAX_MS
+        self.packetizer = CountingPacketizer(self.link, profile, self.cfg.frames_per_packet, self.cfg.fill_mtu, fill_max)
         if self.cfg.listen:
             return
         self.gate = VoiceGate(self.packetizer, self.cfg.vad_db, self.cfg.vad_hang)
+        self.conditioner = MicConditioner(self.cfg.tx_gain_db, self.cfg.mic_agc)
         if self.cfg.tone:
             source = PacedTone(self.cfg.tone, frame_ms_value)
         elif self.cfg.wav:
             source = WavSource(self.cfg.wav, frame_ms_value, loop=self.cfg.wav_loop)
         else:
             source = LineSource(preferred_device=self.cfg.input, target_frame_ms=frame_ms_value)
-        self.tx_pipe = Pipeline(source=source, codec=gated_codec(profile, self.gate), sink=self.packetizer)
+        self.tx_pipe = Pipeline(source=source, codec=gated_codec(profile, self.gate, self.conditioner), sink=self.packetizer)
         self.packetizer.start()
         self.tx_pipe.start()
         self.apply_mode()
@@ -887,10 +989,43 @@ class Client:
     def jitter_frames(self, frame_ms_value):
         return max(1, math.ceil(self.cfg.jitter_ms / frame_ms_value))
 
+    def apply_transport(self):
+        if not self.packetizer:
+            return
+        self.packetizer.frames_per_packet = self.cfg.frames_per_packet
+        if self.ptt_room:
+            # 
+            # This is server authorative for ptt/slow-mode rooms
+            # fill the link MTU, but bound the sender fill to the jitter target
+            # so a large negotiated MDU cannot buffer many seconds of audio before a packet goes out
+            self.packetizer.fill_mtu = True
+            self.packetizer.fill_max_ms = self.ptt_jitter_ms
+            depth_ms = self.ptt_jitter_ms
+            cap_ms = MAX_JITTER_MS
+        else:
+            self.packetizer.fill_mtu = self.cfg.fill_mtu
+            self.packetizer.fill_max_ms = MAX_JITTER_MS if self.cfg.max_jitter else FILL_MAX_MS
+            depth_ms = self.cfg.jitter_ms
+            cap_ms = MAX_JITTER_MS if self.cfg.max_jitter else Playout.MAX_DEPTH_MS
+        if self.playout:
+            self.playout.set_max_depth(cap_ms)
+            self.playout.set_floor(max(1, math.ceil(depth_ms / self.frame_ms)))
+
     def set_jitter(self, milliseconds):
         self.cfg.jitter_ms = max(0, int(milliseconds))
-        if self.playout:
-            self.playout.set_floor(self.jitter_frames(self.frame_ms))
+        self.apply_transport()
+
+    def set_frames_per_packet(self, count):
+        self.cfg.frames_per_packet = max(1, min(MAX_BATCH, int(count)))
+        self.apply_transport()
+
+    def set_fill_mtu(self, enabled):
+        self.cfg.fill_mtu = bool(enabled)
+        self.apply_transport()
+
+    def set_max_jitter(self, enabled):
+        self.cfg.max_jitter = bool(enabled)
+        self.apply_transport()
 
     def clear_speakers(self):
         with self.lock:
@@ -927,6 +1062,7 @@ class Client:
         self.clear_speakers()
         self.packetizer = None
         self.gate = None
+        self.conditioner = None
         self.playout = None
         self.out_sink = None
         self.tx_pipe = None
@@ -946,6 +1082,7 @@ class Client:
             frame_ms_value = self.frame_ms
             self.stop_audio()
             self.configure(profile, frame_ms_value)
+            self.apply_transport()
 
     def set_vad(self, threshold_db, hang_seconds):
         self.cfg.vad_db = float(threshold_db)
@@ -953,6 +1090,16 @@ class Client:
         if self.gate:
             self.gate.threshold = self.cfg.vad_db
             self.gate.hang = self.cfg.vad_hang
+
+    def set_tx_gain(self, decibels):
+        self.cfg.tx_gain_db = float(decibels)
+        if self.conditioner:
+            self.conditioner.set_gain(self.cfg.tx_gain_db)
+
+    def set_mic_agc(self, enabled):
+        self.cfg.mic_agc = bool(enabled)
+        if self.conditioner:
+            self.conditioner.set_agc(self.cfg.mic_agc)
 
     ### TX CONTROL ###
     def set_mode(self, mode):
@@ -962,13 +1109,32 @@ class Client:
         self.apply_mode()
 
     def set_transmit(self, down):
-        self.ptt_down = bool(down)
+        if bool(down):
+            self._cancel_ptt_hang()
+            self.ptt_down = True
+            self.apply_mode()
+        elif self.ptt_down:
+            hang_seconds = max(PTT_HANG_MS, (self.frame_ms or 0) + 100) / 1000.0
+            self._cancel_ptt_hang()
+            self._ptt_hang_timer = threading.Timer(hang_seconds, self._end_transmit)
+            self._ptt_hang_timer.daemon = True
+            self._ptt_hang_timer.start()
+
+    def _end_transmit(self):
+        self.ptt_down = False
         self.apply_mode()
+
+    def _cancel_ptt_hang(self):
+        timer = self._ptt_hang_timer
+        if timer is not None:
+            timer.cancel()
+            self._ptt_hang_timer = None
 
     def apply_mode(self):
         if not self.packetizer or self.cfg.listen:
             return
         mode = self.cfg.mode
+        self.packetizer.edge_guard = (mode == "ptt")
         if self.gate:
             self.gate.enabled = (mode == "vox") and not self.muted
         if self.cfg.tone:
@@ -1082,8 +1248,19 @@ def add_common_args(parser):
     )
     parser.add_argument("--vad-db", type=float, default=-45.0, help="voice gate threshold db")
     parser.add_argument("--vad-hang", type=float, default=0.4, help="seconds to keep sending after speech")
+    parser.add_argument("--tx-gain", type=float, default=0.0, help="microphone make-up gain in dB (default 0)")
+    parser.add_argument("--agc", action="store_true", help="automatic gain control: normalise mic level while talking")
     parser.add_argument("--low-latency", action="store_true")
     parser.add_argument("--jitter-ms", type=int, default=200, help="receive jitter in ms more = smoother, later")
+    parser.add_argument(
+        "--frames-per-packet", type=int, default=1, help="codec frames per packet, higher saves overhead on slow links"
+    )
+    parser.add_argument(
+        "--fill-mtu", action="store_true", help="advanced: pack as many frames as fit the link MTU (adds latency)"
+    )
+    parser.add_argument(
+        "--max-jitter", action="store_true", help="advanced: allow a much larger receive jitter buffer (adds latency)"
+    )
 
 
 def config_from_args(args):
@@ -1091,10 +1268,15 @@ def config_from_args(args):
         mode=args.mode,
         vad_db=args.vad_db,
         vad_hang=args.vad_hang,
+        tx_gain_db=getattr(args, "tx_gain", 0.0),
+        mic_agc=getattr(args, "agc", False),
         input=args.input,
         output=args.output,
         low_latency=args.low_latency,
         jitter_ms=args.jitter_ms,
+        frames_per_packet=getattr(args, "frames_per_packet", 1),
+        fill_mtu=getattr(args, "fill_mtu", False),
+        max_jitter=getattr(args, "max_jitter", False),
         tone=getattr(args, "tone", None),
         wav=getattr(args, "wav", None),
         wav_loop=getattr(args, "wav_loop", False),

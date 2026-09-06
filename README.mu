@@ -45,6 +45,7 @@
 `F44f`_`[Running`#running]`_`f
 `F44f`_`[Server`#server]`_`f
 `F44f`_`[Systemd unit`#systemd-unit]`_`f
+`F44f`_`[Push to talk rooms`#push-to-talk-rooms]`_`f
 `F44f`_`[Music and broadcasting`#music-and-broadcasting]`_`f
 `F44f`_`[Credits`#credits]`_`f
 
@@ -152,6 +153,19 @@ Then:
 `=
 sudo systemctl daemon-reload
 sudo systemctl enable --now partyline
+`=
+
+>Push to talk rooms
+
+PTT, or slow-mode rooms, are rooms designed to work over slower links like LoRa and packet radio, or anything under 7 kbps. They can co-exist with regular rooms in a Partyline server, allowing both fast and slow clients.
+
+Unlike regular rooms there is a bit of latency. PTT rooms pack outgoing audio to fill the link's MTU, sending fewer, fuller packets instead of one frame per packet, and give every listener a larger receive jitter buffer to smooth out the bursty arrival you get over radio mediums like LoRa.
+
+Mark any room push to talk with "ptt": true. Optionally set "ptt_jitter_ms" to change the buffer depth. It's recommended to use PTT rooms with the Codec2 profiles.
+
+`=
+{"name": "LoRa 1200", "profile": "c2-1200", "ptt": true, "description": "Slow-link push to talk"}
+{"name": "Packet Radio Net 700",  "profile": "c2-700",  "ptt": true, "ptt_jitter_ms": 9000}
 `=
 
 >Music and broadcasting

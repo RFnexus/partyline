@@ -92,8 +92,17 @@ ADMIN_MOVE = "move"
 ADMIN_ACTIONS = (ADMIN_KICK, ADMIN_BAN, ADMIN_MUTE, ADMIN_UNMUTE, ADMIN_OP, ADMIN_DEOP, ADMIN_MOVE)
 
 MAX_FRAME_BYTES = 400
-# text limits for messages
+MAX_BATCH = 64
 
+# join sync record batching for room and membership lists
+SYNC_BASE = 5
+SYNC_MARGIN = 8
+
+# push-to-talk /slow-mode rooms default receive jitter depth that should cover all frame sizes from c2-700 to opus-high
+PTT_JITTER_MS = 6000
+
+
+# text limits for messages
 MAX_NAME = 48
 MAX_TEXT = 300
 MAX_DESCRIPTION = 120
@@ -113,6 +122,12 @@ PROFILES = {
     "music-med": (Opus, Opus.PROFILE_AUDIO_MEDIUM, 40, "Opus music 28 kbps, 40 ms frames"),
     "music-high": (Opus, Opus.PROFILE_AUDIO_HIGH, 40, "Opus music 56 kbps, 40 ms frames"),
 }
+
+
+def record_batch(value):
+    if isinstance(value, list) and value and isinstance(value[0], (list, tuple)):
+        return value
+    return [value]
 
 
 def make_codec(profile_name):

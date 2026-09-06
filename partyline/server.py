@@ -38,6 +38,8 @@ class Room:
             raise SystemExit(f"room {self.name!r}: unknown profile {self.profile!r}")
 
         self.frame_ms = frame_ms(self.profile)
+        self.ptt = bool(spec.get("ptt", False))
+        self.ptt_jitter_ms = int(spec.get("ptt_jitter_ms", PTT_JITTER_MS)) if self.ptt else 0
         self.password = spec.get("password") or None
 
         self.require_identity = bool(spec.get("require_identity", default_require_identity))
@@ -90,7 +92,7 @@ class Room:
         return member.identity is not None and member.identity.hash in self.music_speakers
 
     def as_channel(self, dialin_number=None):
-        return [self.id, self.name, self.profile, self.frame_ms, self.access, self.description, dialin_number]
+        return [self.id, self.name, self.profile, self.frame_ms, self.access, self.description, dialin_number, self.ptt_jitter_ms]
 
     def __str__(self):
         parts = [describe(self.profile)]
@@ -411,11 +413,10 @@ class Server:
                 "app": APP_VERSION,
             }
             self.send(member.link, {FIELD_WELCOME: welcome})
-            for existing_room in self.rooms.values():
-                self.send(member.link, {FIELD_CHANNEL: self.channel_record(existing_room)})
-            for other in self.members.values():
-                if other.admitted and other is not member:
-                    self.send(member.link, {FIELD_USER: other.as_user()})
+            channels = [self.channel_record(existing_room) for existing_room in self.rooms.values()]
+            users = [other.as_user() for other in self.members.values() if other.admitted and other is not member]
+            self.send_records(member.link, FIELD_CHANNEL, channels)
+            self.send_records(member.link, FIELD_USER, users)
             self.send(member.link, {FIELD_SYNCED: True})
 
 
@@ -595,39 +596,80 @@ class Server:
         if FIELD_TALK_END in fields:
             self.relay_end(member)
 
-    def relay(self, member, frame, raw_length, sequence=None):
+    def relay(self, member, frames, raw_length, sequence=None):
         room = member.room
         if room is None or member.server_muted or not member.speaker:
             return
         if not member.allow_packet():
             member.limited_frames += 1
             return
-        if not valid_frame(frame, room.profile):
+
+        batch = frames if isinstance(frames, list) else [frames]
+        if not 1 <= len(batch) <= MAX_BATCH:
             member.rejected_frames += 1
             return
+        for frame in batch:
+            if not valid_frame(frame, room.profile):
+                member.rejected_frames += 1
+                return
 
         self.rx_packets += 1
         self.rx_bytes += raw_length
 
-        outgoing = {FIELD_FRAMES: frame, FIELD_SPEAKER: member.member_id}  
-
-
-        if isinstance(sequence, int) and 0 <= sequence <= 0xFFFF:
-            outgoing[FIELD_SEQ] = sequence
+        base = sequence if isinstance(sequence, int) and 0 <= sequence <= 0xFFFF else None
+        outgoing = {FIELD_FRAMES: frames, FIELD_SPEAKER: member.member_id}
+        if base is not None:
+            outgoing[FIELD_SEQ] = base
         outgoing_data = msgpack.packb(outgoing)
 
         with self.lock:
             targets = [other for other in room.members if other is not member and not other.deaf]
         for other in targets:
             if other.link is None:
-                other.bridge.deliver(frame, member.member_id, sequence) 
+                seq = base
+                for frame in batch:
+                    other.bridge.deliver(frame, member.member_id, seq)
+                    seq = None if seq is None else (seq + 1) & 0xFFFF
                 continue
             if other.link.status != RNS.Link.ACTIVE:
                 continue
-            outgoing_packet = RNS.Packet(other.link, outgoing_data, create_receipt=False)
-            if outgoing_packet.send() is not False:
-                self.tx_packets += 1
-                self.tx_bytes += len(outgoing_packet.raw)
+            getter = getattr(other.link, "get_mdu", None)
+            limit = getter() if getter else None
+            if limit and len(outgoing_data) > limit:
+                self.relay_split(other.link, batch, base, member.member_id, limit)
+            else:
+                outgoing_packet = RNS.Packet(other.link, outgoing_data, create_receipt=False)
+                if outgoing_packet.send() is not False:
+                    self.tx_packets += 1
+                    self.tx_bytes += len(outgoing_packet.raw)
+
+    def relay_split(self, link, batch, base, speaker_id, mdu):
+        chunk = []
+        chunk_seq = base
+        chunk_packed = 0
+        seq = base
+        for frame in batch:
+            cost = len(frame) + 3
+            if chunk and 12 + chunk_packed + cost > mdu - 8:
+                self.relay_send(link, chunk, chunk_seq, speaker_id)
+                chunk = []
+                chunk_packed = 0
+                chunk_seq = seq
+            chunk.append(frame)
+            chunk_packed += cost
+            seq = None if seq is None else (seq + 1) & 0xFFFF
+        if chunk:
+            self.relay_send(link, chunk, chunk_seq, speaker_id)
+
+    def relay_send(self, link, frames, seq, speaker_id):
+        payload = frames[0] if len(frames) == 1 else list(frames)
+        outgoing = {FIELD_FRAMES: payload, FIELD_SPEAKER: speaker_id}
+        if seq is not None:
+            outgoing[FIELD_SEQ] = seq
+        packet = RNS.Packet(link, msgpack.packb(outgoing), create_receipt=False)
+        if packet.send() is not False:
+            self.tx_packets += 1
+            self.tx_bytes += len(packet.raw)
 
 
 
@@ -769,6 +811,25 @@ class Server:
     def send(self, link, fields):
         if link is not None and link.status == RNS.Link.ACTIVE:
             RNS.Packet(link, msgpack.packb(fields), create_receipt=False).send()
+
+    def send_records(self, link, field, records):
+        # pack the join sync (rooms followed by users) users) into as few packets as fit the link MTU
+        if link is None or link.status != RNS.Link.ACTIVE:
+            return
+        mdu = link.get_mdu() or RNS.Link.MDU
+        limit = mdu - SYNC_MARGIN
+        batch = []
+        packed = SYNC_BASE
+        for record in records:
+            cost = len(msgpack.packb(record))
+            if batch and packed + cost > limit:
+                self.send(link, {field: batch})
+                batch = []
+                packed = SYNC_BASE
+            batch.append(record)
+            packed += cost
+        if batch:
+            self.send(link, {field: batch})
 
     def broadcast(self, fields, room=None, exclude=None):
         with self.lock:

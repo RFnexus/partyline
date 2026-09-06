@@ -13,6 +13,7 @@ dist/
 demo_rns/
 docs/demo/*.wav
 docs/demo/*.mp3
+docs/demo/modem73/
 
 tests/rns/storage/
 tests/rns/state/

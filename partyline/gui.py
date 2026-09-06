@@ -13,7 +13,7 @@ from tkinter import font as tkfont
 import RNS
 from LXST import APP_NAME
 
-from .client import Client, Config, MODES, default_name, audio_devices, tune_gc
+from .client import Client, Config, MODES, MAX_JITTER_MS, default_name, audio_devices, tune_gc
 from .common import *
 from .prefs import Settings, ServerList, IDENTITY_FILE
 from .sounds import SoundPlayer
@@ -540,12 +540,16 @@ class ConnectDialog(Dialog):
             return
         self.discovered_tip = tk.Toplevel(self.discovered)
         self.discovered_tip.wm_overrideredirect(True)
+        try:
+            self.discovered_tip.wm_attributes("-topmost", True)
+        except tk.TclError:
+            pass
         tk.Label(
             self.discovered_tip,
             text=description,
             justify="left",
-            background=self.app.palette["field"],
-            foreground=self.app.palette["fg"],
+            background=self.app.palette.get("field", "#ffffe0"),
+            foreground=self.app.palette.get("fg", "#000000"),
             relief="solid",
             borderwidth=1,
             padx=5,
@@ -555,6 +559,7 @@ class ConnectDialog(Dialog):
         self.discovered_tip.wm_geometry(
             f"+{self.discovered.winfo_rootx() + event.x + 14}+{self.discovered.winfo_rooty() + event.y + 16}"
         )
+        self.discovered_tip.lift()
 
     def hide_discovered_tip(self):
         if self.discovered_tip is not None:
@@ -715,6 +720,21 @@ class SettingsDialog(Dialog):
         self.meter_label = ttk.Label(vad_frame, width=8)
         self.meter_label.grid(row=2, column=2, pady=(6, 0))
         vad_frame.columnconfigure(1, weight=1)
+
+        mic_frame = ttk.LabelFrame(input_tab, text="Microphone", padding=8)
+        mic_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=4)
+        self.tx_gain_var = tk.DoubleVar(value=float(settings["tx_gain_db"]))
+        ttk.Label(mic_frame, text="TX gain").grid(row=0, column=0, sticky="w")
+        ttk.Scale(mic_frame, from_=-20, to=20, variable=self.tx_gain_var, orient="horizontal", length=220).grid(
+            row=0, column=1, sticky="ew", padx=6
+        )
+        self.tx_gain_label = ttk.Label(mic_frame, width=8)
+        self.tx_gain_label.grid(row=0, column=2)
+        self.agc_var = tk.BooleanVar(value=bool(settings["mic_agc"]))
+        ttk.Checkbutton(
+            mic_frame, text="Automatic gain control (AGC)", variable=self.agc_var
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 0))
+        mic_frame.columnconfigure(1, weight=1)
         input_tab.columnconfigure(1, weight=1)
 
         ### AUDIO OUTPUT ###
@@ -740,26 +760,66 @@ class SettingsDialog(Dialog):
         jitter_row = ttk.Frame(output_tab)
         jitter_row.grid(row=2, column=1, sticky="ew", pady=3)
         self.jitter_var = tk.IntVar(value=int(settings["jitter_ms"]))
-        ttk.Scale(
+        self.jitter_scale = ttk.Scale(
             jitter_row,
             from_=0,
-            to=5000,
+            to=MAX_JITTER_MS if settings["max_jitter"] else 5000,
             variable=self.jitter_var,
             orient="horizontal",
             length=220,
             command=lambda value: self.jitter_var.set(int(float(value))),
-        ).pack(side="left")
+        )
+        self.jitter_scale.pack(side="left")
         self.jitter_label = ttk.Label(jitter_row, width=8)
         self.jitter_label.pack(side="left", padx=6)
+
         ttk.Label(
             output_tab, text="The codec and frame size are set by the server for each room.", foreground="#666"
-        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 0))
         self.debug_stats_var = tk.BooleanVar(value=settings["debug_stats"])
         ttk.Checkbutton(
             output_tab,
             text="Display debug stats (bitrates and loss counters in the status bar)",
             variable=self.debug_stats_var,
-        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(12, 0))
+        ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(12, 0))
+
+        self.advanced_shown = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            output_tab, text="Advanced settings", variable=self.advanced_shown, command=self.toggle_advanced
+        ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(14, 0))
+        self.advanced_frame = ttk.Frame(output_tab)
+        self.advanced_frame.grid(row=6, column=0, columnspan=2, sticky="ew")
+
+        ttk.Label(
+            self.advanced_frame,
+            text="Only modify these settings if you know what you are doing",
+            foreground="#c0392b",
+        ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(4, 6))
+
+        ttk.Label(self.advanced_frame, text="Frames per packet").grid(row=1, column=0, sticky="w", pady=3)
+        batch_row = ttk.Frame(self.advanced_frame)
+        batch_row.grid(row=1, column=1, sticky="w", pady=3)
+        self.batch_var = tk.IntVar(value=int(settings["frames_per_packet"]))
+        ttk.Combobox(batch_row, textvariable=self.batch_var, values=(1, 2, 3, 4), state="readonly", width=4).pack(
+            side="left"
+        )
+
+        self.fill_mtu_var = tk.BooleanVar(value=bool(settings["fill_mtu"]))
+        ttk.Checkbutton(
+            self.advanced_frame,
+            text="Fill the link MTU",
+            variable=self.fill_mtu_var,
+        ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(6, 0))
+
+        self.max_jitter_var = tk.BooleanVar(value=bool(settings["max_jitter"]))
+        ttk.Checkbutton(
+            self.advanced_frame,
+            text="Enable max jitter buffer",
+            variable=self.max_jitter_var,
+            command=self.toggle_max_jitter,
+        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
+
+        self.advanced_frame.grid_remove()
         output_tab.columnconfigure(1, weight=1)
 
         ### APPEARANCE ###
@@ -887,6 +947,7 @@ class SettingsDialog(Dialog):
             return
         self.vad_label.config(text=f"{self.vad_var.get():.0f} dB")
         self.hang_label.config(text=f"{self.hang_var.get():.1f} s")
+        self.tx_gain_label.config(text=f"{self.tx_gain_var.get():+.0f} dB")
         self.jitter_label.config(text=f"{self.jitter_var.get()} ms")
         if self.app.client:
             level = self.app.client.level
@@ -900,6 +961,20 @@ class SettingsDialog(Dialog):
             except queue.Empty:
                 pass
         self.after(100, self.tick)
+
+    def toggle_advanced(self):
+        if self.advanced_shown.get():
+            self.advanced_frame.grid()
+        else:
+            self.advanced_frame.grid_remove()
+
+    def toggle_max_jitter(self):
+        if self.max_jitter_var.get():
+            self.jitter_scale.config(to=MAX_JITTER_MS)
+        else:
+            self.jitter_scale.config(to=5000)
+            if self.jitter_var.get() > 5000:
+                self.jitter_var.set(5000)
 
     def apply(self):
         settings = self.app.settings
@@ -915,8 +990,13 @@ class SettingsDialog(Dialog):
             ptt_global=self.global_var.get(),
             vad_db=round(self.vad_var.get(), 1),
             vad_hang=round(self.hang_var.get(), 2),
+            tx_gain_db=round(self.tx_gain_var.get(), 1),
+            mic_agc=self.agc_var.get(),
             name=self.name_var.get().strip(),
             jitter_ms=int(self.jitter_var.get()),
+            frames_per_packet=int(self.batch_var.get()),
+            fill_mtu=self.fill_mtu_var.get(),
+            max_jitter=self.max_jitter_var.get(),
             debug_stats=self.debug_stats_var.get(),
             font_size=max(8, min(24, int(self.font_size_var.get() or 10))),
             sfx=self.sfx_var.get(),
@@ -1174,7 +1254,7 @@ class App:
                 pass
 
         self.icons = {}
-        for kind in ("server", "server_locked", "channel", "channel_locked", "phone"):
+        for kind in ("server", "server_locked", "channel", "channel_locked", "channel_ptt", "phone"):
             self.icons[kind] = load_icon(kind)
         for kind in USER_ICON_KINDS:
             self.icons[kind] = load_icon(kind)
@@ -1538,8 +1618,13 @@ class App:
             if current_devices != wanted_devices:
                 client.set_devices(settings["input"], settings["output"], settings["low_latency"])
             client.set_vad(settings["vad_db"], settings["vad_hang"])
+            client.set_tx_gain(settings["tx_gain_db"])
+            client.set_mic_agc(settings["mic_agc"])
             client.set_mode(settings["mode"])
             client.set_jitter(settings["jitter_ms"])
+            client.set_frames_per_packet(settings["frames_per_packet"])
+            client.set_fill_mtu(settings["fill_mtu"])
+            client.set_max_jitter(settings["max_jitter"])
             if not push_to_talk:
                 client.set_transmit(False)
 
@@ -1558,10 +1643,15 @@ class App:
             mode=settings["mode"],
             vad_db=settings["vad_db"],
             vad_hang=settings["vad_hang"],
+            tx_gain_db=settings["tx_gain_db"],
+            mic_agc=settings["mic_agc"],
             input=settings["input"],
             output=settings["output"],
             low_latency=settings["low_latency"],
             jitter_ms=settings["jitter_ms"],
+            frames_per_packet=settings["frames_per_packet"],
+            fill_mtu=settings["fill_mtu"],
+            max_jitter=settings["max_jitter"],
         )
 
 
@@ -1930,12 +2020,69 @@ class App:
             self.settings["user_gains"] = gains
             self.settings.save()
 
+    def confirm_ptt_join(self, channel):
+        seconds = max(1, round(channel.ptt_jitter_ms / 1000))
+        message = (
+            f"“{channel.name}” is a push-to-talk slow-mode room, made for slow links.\n\n"
+            f"• You will hear other people after a short delay of about 2-{seconds} seconds. "
+            "That delay is normal and lets the audio arrive cleanly.\n"
+            "• It works best when one person talks at a time.\n\n"
+            "Join this room?"
+        )
+        dialog = tk.Toplevel(self.root)
+        dialog.title("Push-to-talk room")
+        dialog.transient(self.root)
+        dialog.resizable(False, False)
+        ttk.Label(dialog, text=message, justify="left", wraplength=380).grid(
+            row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(16, 12)
+        )
+        hide_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(dialog, text="Don't show this again", variable=hide_var).grid(
+            row=1, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 8)
+        )
+        choice = {"join": False}
+
+        def join():
+            choice["join"] = True
+            if hide_var.get():
+                self.settings["hide_ptt_notice"] = True
+                self.settings.save()
+            dialog.destroy()
+
+        join_button = ttk.Button(dialog, text="Join", command=join)
+        join_button.grid(row=2, column=0, sticky="e", padx=(0, 8), pady=(0, 16))
+        ttk.Button(dialog, text="Cancel", command=dialog.destroy).grid(
+            row=2, column=1, sticky="w", padx=(0, 16), pady=(0, 16)
+        )
+        dialog.columnconfigure(0, weight=1)
+        dialog.bind("<Return>", lambda event: join())
+        dialog.bind("<Escape>", lambda event: dialog.destroy())
+
+
+
+        def arm():
+            try:
+                dialog.grab_set()
+                dialog.lift()
+                dialog.focus_force()
+                join_button.focus_set()
+            except tk.TclError:
+                pass
+
+        dialog.update_idletasks()
+        dialog.after(30, arm)
+        self.root.wait_window(dialog)
+        return choice["join"]
+
     def join_room(self, room_id):
         client = self.client
         if not client or not client.connected:
             return
         channel = client.channels.get(room_id)
         if channel is None or room_id == client.my_room:
+            return
+
+        if channel.ptt and not self.settings["hide_ptt_notice"] and not self.confirm_ptt_join(channel):
             return
 
         password = None
@@ -1976,7 +2123,9 @@ class App:
 
         tree.insert("", "end", iid="server", text=f" {label}", image=self.icons["server"], open=True)
         for channel in sorted(client.channels.values(), key=lambda entry: entry.id):
-            if channel.locked:
+            if channel.ptt:
+                icon = self.icons["channel_ptt"]
+            elif channel.locked:
                 icon = self.icons["channel_locked"]
             elif channel.dialin_number:
                 icon = self.icons["phone"]

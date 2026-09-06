@@ -103,7 +103,7 @@ Then:
     sudo systemctl daemon-reload
     sudo systemctl enable --now partyline
 
-### Music/Broadcasting & Bots
+### Music/Broadcasting Rooms & Bots
 
 Server operators can also configure broadcast-only rooms for high quality music and audio using LXST's Opus CELT profiles. The options are `music-high`, `music-med`, and `music-low`.  Music rooms are a special type of room where only the listed identities can send audio. Add their identity hash, seperated by commas, in `music`
 
@@ -114,7 +114,16 @@ Server operators can also configure broadcast-only rooms for high quality music 
 
 An example Music Bot can be found under `bots/music_bot.py`
 
+### Push to talk (slow link) Rooms
+PTT, or slow-mode rooms, are rooms designed to work over slower links like LoRa, bare copper wire bitbashing, and packet radio. Anything with more than a steady ~3.5 kbps throughput can use a PTT room. They can co-exist with regular rooms in a Partyline server, allowing both fast and slow clients to communicate over voice. 
 
+Unlike regular rooms there is a bit of latency. PTT rooms pack outgoing audio to fill the link's MTU, sending fewer, fuller packets instead of one frame per packet, and give every listener a larger receive jitter buffer to smooth out the bursty arrival you get over radio mediums like LoRa. 
+
+Mark any room push to talk with `"ptt": true`. Optionally set `"ptt_jitter_ms"` to change the buffer depth. It's recommended to use PTT rooms with the codec2 profiles.  
+```
+{"name": "LoRa 1200", "profile": "c2-1200", "ptt": true, "description": "Slow-link push to talk"}
+{"name": "Packet Radio Net 700",  "profile": "c2-700",  "ptt": true, "ptt_jitter_ms": 9000}
+```
 
 ### Credits
 - [Reticulum](https://github.com/markqvist/Reticulum) and [LXST](https://github.com/markqvist/lxst) by Mark Qvist

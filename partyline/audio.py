@@ -41,12 +41,71 @@ class VoiceGate:
 
 
 
-def gated_codec(profile_name, gate):
+class MicConditioner:
+    TARGET_RMS = 0.12     # -18 dBFS
+
+    CEILING = 0.89        # -1 dBFS peak limit
+
+    GATE_RMS = 0.0025     # -52 dBFS
+
+    MAX_AGC_GAIN = 8.0    # +18 dB ceiling
+    MIN_AGC_GAIN = 0.25   # -12 dB floor
+    ATTACK = 0.4        
+    RELEASE = 0.04
+
+    def __init__(self, gain_db=0.0, agc=False):
+        self.set_gain(gain_db)
+        self.agc = bool(agc)
+        self.agc_gain = 1.0
+
+    def set_gain(self, gain_db):
+        self.gain_db = float(gain_db)
+        self.gain = 10.0 ** (self.gain_db / 20.0)
+
+    def set_agc(self, enabled):
+        self.agc = bool(enabled)
+        if not self.agc:
+            self.agc_gain = 1.0
+
+    def boost(self, samples):
+        # manual gain aplied before the voice gate
+        if self.gain == 1.0 or samples is None or not samples.size:
+            return samples
+        return (samples * self.gain).astype("float32", copy=False)
+
+    def level(self, samples):
+        # AGC and peak limiting
+        if samples is None or not samples.size:
+            return samples
+        if self.agc:
+            rms = float(np.sqrt(np.mean(np.square(samples))))
+            if rms > self.GATE_RMS:
+                desired = self.TARGET_RMS / rms
+                desired = min(self.MAX_AGC_GAIN, max(self.MIN_AGC_GAIN, desired))
+                rate = self.ATTACK if desired < self.agc_gain else self.RELEASE
+                self.agc_gain += (desired - self.agc_gain) * rate
+            return self._limit(samples * self.agc_gain) 
+        if self.gain != 1.0:
+            return self._limit(samples)
+        return samples
+
+    def _limit(self, samples):
+        peak = float(np.max(np.abs(samples)))
+        if peak > self.CEILING:
+            samples = samples * (self.CEILING / peak)
+        return samples.astype("float32", copy=False)
+
+
+def gated_codec(profile_name, gate, conditioner=None):
     codec_class, codec_argument, _, _ = PROFILES[profile_name]
 
     class Gated(codec_class):
         def encode(self, samples):
+            if conditioner is not None:
+                samples = conditioner.boost(samples)
             gate.handle_frame(samples)
+            if conditioner is not None:
+                samples = conditioner.level(samples)
             return super().encode(samples)
 
     Gated.__name__ = codec_class.__name__
@@ -92,12 +151,13 @@ class Playout:
     
     MAX_GAP = 64         # missing frames we will will reserve slots for
 
-    def __init__(self, frame_ms, depth_frames, sink, samplerate=48000):
+    def __init__(self, frame_ms, depth_frames, sink, samplerate=48000, max_depth_ms=None):
         self.frame_ms = frame_ms
         self.frame_seconds = frame_ms / 1000
+        self.max_depth_ms = max_depth_ms or self.MAX_DEPTH_MS
         self.depth = max(1, int(depth_frames))
-        self.depth_min = self.depth  
-        self.depth_max = max(self.depth, math.ceil(self.MAX_DEPTH_MS / frame_ms))
+        self.depth_min = self.depth
+        self.depth_max = max(self.depth, math.ceil(self.max_depth_ms / frame_ms))
         self.low_water = None  
         self.last_shrink_check = time.time()
         self.grew = 0
@@ -201,6 +261,10 @@ class Playout:
         self.depth_min = max(1, int(depth_frames))
         self.depth = self.depth_min
         self.low_water = None
+
+    def set_max_depth(self, max_depth_ms):
+        self.max_depth_ms = max(self.frame_ms, int(max_depth_ms))
+        self.depth_max = max(self.depth, math.ceil(self.max_depth_ms / self.frame_ms))
 
     @property
     def depth_ms(self):

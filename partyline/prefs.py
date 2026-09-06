@@ -19,6 +19,9 @@ DEFAULTS = {
     
     "low_latency": False,
     "jitter_ms": 200,     # receive jitter buffer depth
+    "frames_per_packet": 1,  # codec frames per RNS packet, higher saves overhead on slow links
+    "fill_mtu": False,    # advanced: pack as many frames as fit the link MTU
+    "max_jitter": False,  # advanced: allow a much larger receive jitter buffer
 
     "user_gains": {},     # identity hash local volume adjustment in dB
     "user_muted": [],     # identity hashes muted locally
@@ -29,6 +32,9 @@ DEFAULTS = {
     "ptt_global": True,   # system-wide hotkey via pynput when available
     "vad_db": -45.0,
     "vad_hang": 0.4,
+    "tx_gain_db": 0.0,    # microphone make-up gain in dB
+    "mic_agc": False,     # automatic gain control on the microphone
+    "hide_ptt_notice": False,  
 
     "window": None,       # window dimensions
     "sash": None,         # divider between chat and tree, in pixels from the left

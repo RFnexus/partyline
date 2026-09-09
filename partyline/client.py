@@ -30,10 +30,7 @@ PATH_WAIT_MAX = 120.0
 
 SAMPLE_RATE = 48000
 
-BATCH_BASE_COST = 8
-BATCH_MARGIN = 16
 FILL_MAX_MS = 2500
-MAX_JITTER_MS = 30000
 PTT_PREROLL_MS = 250
 PTT_HANG_MS = 250
 
@@ -199,6 +196,7 @@ class WavSource(LocalSource):
         self.should_run = False
         self.position = 0
         self.finished = False
+        self.on_finished = None
 
     def start(self):
         self.should_run = True
@@ -216,6 +214,8 @@ class WavSource(LocalSource):
             if end > len(self.samples):
                 if not self.loop:
                     self.finished = True
+                    if self.on_finished:
+                        self.on_finished()
                     return
                 self.position = 0
                 end = samples_per_frame
@@ -281,7 +281,9 @@ class AnalyzingSink(LocalSink):
 
 
 class Channel:
-    def __init__(self, room_id, name, profile, frame_ms, access, description, dialin_number=None, ptt_jitter_ms=0):
+    def __init__(
+        self, room_id, name, profile, frame_ms, access, description, dialin_number=None, ptt_jitter_ms=0, flags=0
+    ):
         self.id = room_id
         self.name = name
         self.profile = profile
@@ -290,10 +292,19 @@ class Channel:
         self.description = description
         self.dialin_number = dialin_number  # rnphone / lxst clients can call this to land in the room
         self.ptt_jitter_ms = int(ptt_jitter_ms or 0)
+        self.flags = int(flags or 0)
 
     @property
     def ptt(self):
         return self.ptt_jitter_ms > 0
+
+    @property
+    def broadcast(self):
+        return bool(self.flags & ROOM_BROADCAST)
+
+    @property
+    def music(self):
+        return self.broadcast or str(self.profile).startswith("music-")
 
     @property
     def locked(self):
@@ -307,7 +318,10 @@ class Channel:
             parts.append("identified users")
         if self.access & ACCESS_PASSWORD:
             parts.append("password")
-        return ", ".join(parts) or "open"
+        text = ", ".join(parts) or "open"
+        if self.broadcast:
+            text += ", listed speakers only"
+        return text
 
 
 class User:
@@ -708,6 +722,8 @@ class Client:
         room_id, name, profile, frame_ms_value, access, description = record[:6]
         dialin_number = record[6] if len(record) > 6 else None
         ptt_jitter_ms = record[7] if len(record) > 7 and isinstance(record[7], int) else 0
+        ptt_jitter_ms = max(0, min(MAX_JITTER_MS, ptt_jitter_ms))
+        flags = record[8] if len(record) > 8 and isinstance(record[8], int) else 0
         if profile not in PROFILES:
             self.event("error", f"room {name!r} uses unknown profile {profile!r}")
             return
@@ -722,6 +738,7 @@ class Client:
             clean_text(description, MAX_DESCRIPTION),
             dialin_number,
             ptt_jitter_ms,
+            flags,
         )
         self.channels[channel.id] = channel
         self.event("channel", channel)
@@ -847,7 +864,7 @@ class Client:
             self.speakers.pop(member_id, None)
         self._reorder.pop(member_id, None)
         if self.playout:
-            self.playout.remove(member_id)
+            self.playout.finish(member_id)
         self.last_heard.pop(member_id, None)
 
     def _burst_job(self):
@@ -979,6 +996,7 @@ class Client:
             source = PacedTone(self.cfg.tone, frame_ms_value)
         elif self.cfg.wav:
             source = WavSource(self.cfg.wav, frame_ms_value, loop=self.cfg.wav_loop)
+            source.on_finished = self._wav_finished
         else:
             source = LineSource(preferred_device=self.cfg.input, target_frame_ms=frame_ms_value)
         self.tx_pipe = Pipeline(source=source, codec=gated_codec(profile, self.gate, self.conditioner), sink=self.packetizer)
@@ -988,6 +1006,11 @@ class Client:
 
     def jitter_frames(self, frame_ms_value):
         return max(1, math.ceil(self.cfg.jitter_ms / frame_ms_value))
+
+    def _wav_finished(self):
+        packetizer = self.packetizer
+        if packetizer:
+            packetizer.squelch()
 
     def apply_transport(self):
         if not self.packetizer:
@@ -1311,7 +1334,12 @@ def describe_event(client, event):
     if kind == "room":
         channel = client.channels.get(event[1])
         if channel:
-            return f"now in room {channel.name!r} ({describe(channel.profile)})"
+            extras = ""
+            if channel.ptt:
+                extras += f", push-to-talk slow mode with a {channel.ptt_jitter_ms / 1000:g} s buffer"
+            if not client.can_speak_here:
+                extras += ", listen only"
+            return f"now in room {channel.name!r} ({describe(channel.profile)}{extras})"
         return "not in any room"
     if kind == "denied":
         channel = client.channels.get(event[1])
@@ -1440,9 +1468,9 @@ def main():
     parser.add_argument("--listen", action="store_true", help="receive only, never transmit")
     parser.add_argument("--text-only", action="store_true", help="chat only: no audio in or out, for very slow links")
 
-    # parser.add_argument(
-    #     "--tone", type=float, default=None, help="send a test tone at this Hz instead of the microphone"
-    # )
+    parser.add_argument("--tone", type=float, default=None, help=argparse.SUPPRESS)
+    parser.add_argument("--rx-jitter-ms", type=int, default=0, help=argparse.SUPPRESS)
+    parser.add_argument("--rx-loss", type=float, default=0.0, help=argparse.SUPPRESS)
 
     parser.add_argument("--wav", default=None, metavar="FILE")
     parser.add_argument("--wav-loop", action="store_true")
@@ -1450,12 +1478,6 @@ def main():
 
     parser.add_argument("--force-profile", choices=PROFILES.keys(), default=None)
     parser.add_argument("--force-frame-ms", type=int, default=None)
-    # parser.add_argument(
-    #     "--rx-jitter-ms", type=int, default=0, help="testing: deliver received audio in bursts this far apart"
-    # )
-    # parser.add_argument(
-    #     "--rx-loss", type=float, default=0.0, help="testing: drop this fraction of received audio packets (0.02 = 2%%)"
-    # )
     parser.add_argument("--duration", type=float, default=0, help="seconds to run (0 = until Ctrl-C or /quit)")
     args = parser.parse_args()
 

@@ -38,28 +38,41 @@ class Room:
             raise SystemExit(f"room {self.name!r}: unknown profile {self.profile!r}")
 
         self.frame_ms = frame_ms(self.profile)
-        self.ptt = bool(spec.get("ptt", False))
-        self.ptt_jitter_ms = int(spec.get("ptt_jitter_ms", PTT_JITTER_MS)) if self.ptt else 0
+        self.ptt = bool(spec.get("ptt", "ptt_jitter_ms" in spec))
+        self.ptt_jitter_ms = 0
+        if self.ptt:
+            try:
+                self.ptt_jitter_ms = int(spec.get("ptt_jitter_ms", PTT_JITTER_MS))
+            except (TypeError, ValueError):
+                raise SystemExit(f"room {self.name!r}: ptt_jitter_ms must be a number of milliseconds")
+            if not 1 <= self.ptt_jitter_ms <= MAX_JITTER_MS:
+                raise SystemExit(f"room {self.name!r}: ptt_jitter_ms must be between 1 and {MAX_JITTER_MS}")
         self.password = spec.get("password") or None
 
         self.require_identity = bool(spec.get("require_identity", default_require_identity))
 
         if spec.get("allow") or spec.get("allowed_file"):
-            self.allow = load_hash_list(spec.get("allow"), spec.get("allowed_file"))
+            self.allow = self.hash_list("allow", spec.get("allow"), spec.get("allowed_file"))
         else:
             self.allow = None
 
 
         self.max_members = int(spec.get("max_members") or default_max_members)
-        if "music" in spec:
-            self.music_speakers = load_hash_list(spec.get("music"))
+        if spec.get("music") is not None:
+            self.music_speakers = self.hash_list("music", spec.get("music"))
         else:
             self.music_speakers = None
         self.members = set()
 
+    def hash_list(self, key, hashes, path=None):
+        try:
+            return load_hash_list(hashes, path)
+        except (ValueError, OSError) as error:
+            raise SystemExit(f"room {self.name!r}: bad {key} list: {error}")
 
-
-
+    @property
+    def flags(self):
+        return ROOM_BROADCAST if self.music_speakers is not None else 0
 
     @property
     def access(self):
@@ -92,10 +105,24 @@ class Room:
         return member.identity is not None and member.identity.hash in self.music_speakers
 
     def as_channel(self, dialin_number=None):
-        return [self.id, self.name, self.profile, self.frame_ms, self.access, self.description, dialin_number, self.ptt_jitter_ms]
+        return [
+            self.id,
+            self.name,
+            self.profile,
+            self.frame_ms,
+            self.access,
+            self.description,
+            dialin_number,
+            self.ptt_jitter_ms,
+            self.flags,
+        ]
 
     def __str__(self):
         parts = [describe(self.profile)]
+        if self.ptt:
+            parts.append(f"push to talk with a {self.ptt_jitter_ms} ms buffer")
+        if self.music_speakers is not None:
+            parts.append(f"broadcast by {len(self.music_speakers)} listed speakers")
         if self.require_identity:
             parts.append("identified users")
         if self.allow is not None:
@@ -135,6 +162,8 @@ class Member:
 
         self.rate = 0.0
         self.tokens = 0.0
+        self.capacity = 0.0
+        self.talking = False
 
         self.last_refill = time.time()
         self.text_tokens = TEXT_RATE
@@ -146,20 +175,23 @@ class Member:
         if self.room:
             self.room.members.discard(self)
         self.room = room
+        self.talking = False
         if room:
             room.members.add(self)
             self.rate = 2 * 1000 / room.frame_ms
-            self.tokens = self.rate
+            self.capacity = max(2 * self.rate, MAX_BATCH)
         else:
             self.rate = 0.0
-            self.tokens = 0.0
+            self.capacity = 0.0
+        self.tokens = self.capacity
+        self.last_refill = time.time()
 
-    def allow_packet(self):
+    def allow_frames(self, count):
         now = time.time()
-        self.tokens = min(self.rate, self.tokens + (now - self.last_refill) * self.rate)
+        self.tokens = min(self.capacity, self.tokens + (now - self.last_refill) * self.rate)
         self.last_refill = now
-        if self.tokens >= 1:
-            self.tokens -= 1
+        if self.tokens >= count:
+            self.tokens -= count
             return True
         return False
 
@@ -600,19 +632,19 @@ class Server:
         room = member.room
         if room is None or member.server_muted or not member.speaker:
             return
-        if not member.allow_packet():
-            member.limited_frames += 1
-            return
-
         batch = frames if isinstance(frames, list) else [frames]
         if not 1 <= len(batch) <= MAX_BATCH:
             member.rejected_frames += 1
+            return
+        if not member.allow_frames(len(batch)):
+            member.limited_frames += len(batch)
             return
         for frame in batch:
             if not valid_frame(frame, room.profile):
                 member.rejected_frames += 1
                 return
 
+        member.talking = True
         self.rx_packets += 1
         self.rx_bytes += raw_length
 
@@ -676,8 +708,9 @@ class Server:
 
     def relay_end(self, member):
         room = member.room
-        if room is None or member.server_muted:
+        if room is None or member.server_muted or not member.speaker or not member.talking:
             return
+        member.talking = False
         with self.lock:
             targets = [other for other in room.members if other is not member and not other.deaf]
         for other in targets:

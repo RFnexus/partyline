@@ -1254,7 +1254,7 @@ class App:
                 pass
 
         self.icons = {}
-        for kind in ("server", "server_locked", "channel", "channel_locked", "channel_ptt", "phone"):
+        for kind in ("server", "server_locked", "channel", "channel_locked", "channel_ptt", "channel_music", "phone"):
             self.icons[kind] = load_icon(kind)
         for kind in USER_ICON_KINDS:
             self.icons[kind] = load_icon(kind)
@@ -2125,6 +2125,8 @@ class App:
         for channel in sorted(client.channels.values(), key=lambda entry: entry.id):
             if channel.ptt:
                 icon = self.icons["channel_ptt"]
+            elif channel.music:
+                icon = self.icons["channel_music"]
             elif channel.locked:
                 icon = self.icons["channel_locked"]
             elif channel.dialin_number:
@@ -2236,7 +2238,10 @@ class App:
             self.apply_settings()
             channel = client.channels.get(event[1])
             if channel:
-                self.log(f"Joined {channel.name} ({describe(channel.profile)}).", "sys")
+                text = f"Joined {channel.name} ({describe(channel.profile)})."
+                if not client.can_speak_here:
+                    text += " Listen only: this room's listed speakers are the only ones who can talk here."
+                self.log(text, "sys")
             else:
                 self.log("Not in any room: double-click a room to join it.", "sys")
             self.tree_dirty = True

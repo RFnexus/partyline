@@ -190,6 +190,10 @@ class Playout:
     def slack(self):
         return max(4, self.depth // 2)
 
+    @property
+    def stall_seconds(self):
+        return max(self.HOLD_SECONDS, self.depth * self.frame_seconds)
+
     def push(self, key, samples, sequence=None):
         with self.lock:
             member = self.members.get(key)
@@ -260,6 +264,7 @@ class Playout:
     def set_floor(self, depth_frames):
         self.depth_min = max(1, int(depth_frames))
         self.depth = self.depth_min
+        self.depth_max = max(self.depth_max, self.depth_min)
         self.low_water = None
 
     def set_max_depth(self, max_depth_ms):
@@ -289,6 +294,18 @@ class Playout:
                 elif not member["active"]:
                     member["expect"] = None
 
+    def finish(self, key):
+        with self.lock:
+            member = self.members.get(key)
+            if member is None:
+                return
+            if member["queue"]:
+                member["gone"] = True
+                member["ending"] = True
+                member["active"] = True
+            else:
+                self.members.pop(key, None)
+
     def remove(self, key):
         with self.lock:
             self.members.pop(key, None)
@@ -310,9 +327,13 @@ class Playout:
         mixed = None
         now = time.time()
         for member in self.members.values():
-            if not member["active"]:
-                continue
             frames = member["queue"]
+            if not member["active"]:
+                if frames and now - member["seen"] > self.stall_seconds:
+                    member["active"] = True
+                    member["ending"] = True
+                else:
+                    continue
             if self.low_water is None or len(frames) < self.low_water:
                 self.low_water = len(frames)
             frame = frames.popleft() if frames else None
@@ -356,6 +377,8 @@ class Playout:
                 mixed = frame.astype("float32", copy=True)
             elif frame.shape == mixed.shape:
                 mixed += frame
+        for key in [key for key, member in self.members.items() if member.get("gone") and not member["active"]]:
+            self.members.pop(key)
         return mixed
 
     def sink_backlog(self):

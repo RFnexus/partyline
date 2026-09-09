@@ -54,7 +54,7 @@ FIELD_SPEAKER = 0x02    # server -> client member id the frame came from
 FIELD_ROOM = 0x03       # server -> client: [room_id, profile, frame_ms, can_speak] for the room you are now in | all None = no room
 FIELD_HELLO = 0x05      # client -> server after link.identify: {"name", "room", "password", "server_password", "text_only", "muted", "deaf", "hops", "rtt", "ver"}
 FIELD_WELCOME = 0x06    # server -> client: {"name", "sid", "motd", "ver"}
-FIELD_CHANNEL = 0x07    # server -> client: [room_id, name, profile, frame_ms, access_flags, description, dialin_number]
+FIELD_CHANNEL = 0x07    # server -> client: [room_id, name, profile, frame_ms, access_flags, description, dialin_number, ptt_jitter_ms, room_flags]
 FIELD_USER = 0x08       # server -> client: [member_id, name, identity_hex, room_id, muted, deaf, hops, rtt_ms, operator, server_muted, text_only, can_speak]
 FIELD_USER_LEFT = 0x09  # server -> client: member_id
 FIELD_MOVE = 0x0A       # client -> server: [room_id, password_or_None]
@@ -73,6 +73,9 @@ FIELD_TALK_END = 0x13   # client -> server: True when push-to-talk or the voice 
 ACCESS_IDENTITY = 1   # must have identified over the link (anonymous links are refused)
 ACCESS_ALLOWLIST = 2  # identity must be on the room's allow list
 ACCESS_PASSWORD = 4   # must present the room password
+
+
+ROOM_BROADCAST = 1
 
 
 # announce app_data flags: what a browser can tell about a server before connecting
@@ -100,6 +103,10 @@ SYNC_MARGIN = 8
 
 # push-to-talk /slow-mode rooms default receive jitter depth that should cover all frame sizes from c2-700 to opus-high
 PTT_JITTER_MS = 6000
+MAX_JITTER_MS = 30000
+
+BATCH_BASE_COST = 8
+BATCH_MARGIN = 16
 
 
 # text limits for messages
@@ -259,6 +266,8 @@ def load_identity(path):
 
 
 def load_hash_list(hashes=(), path=None):
+    if isinstance(hashes, str):
+        hashes = hashes.replace(",", " ").split()
     lines = list(hashes or [])
     if path:
         with open(os.path.expanduser(path)) as list_file:

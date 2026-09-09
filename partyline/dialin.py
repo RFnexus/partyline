@@ -146,6 +146,8 @@ class Call:
 
         self.caller_samples = np.zeros((0, 1), dtype="float32")
         self.sequence = 0
+        self.pending = []
+        self.pending_cost = 0
         self.gate_open_until = 0.0
         self.gate_was_open = False
         self.injected_frames = 0
@@ -211,7 +213,8 @@ class Call:
 
         self.member = member
         self.feed = CallerFeed(self)
-        depth_frames = max(1, -(-self.dialin.jitter_ms // self.room.frame_ms))
+        jitter_ms = max(self.dialin.jitter_ms, self.room.ptt_jitter_ms)
+        depth_frames = max(1, -(-jitter_ms // self.room.frame_ms))
         self.playout = Playout(self.room.frame_ms, depth_frames, self.feed)
         self.playout.start()
         self.feed.start()
@@ -299,13 +302,34 @@ class Call:
         if now > self.gate_open_until:
             if self.gate_was_open:
                 self.gate_was_open = False
+                self.flush()
                 self.server.relay_end(self.member)
             return
         self.gate_was_open = True
-        encoded = self.room_codec.encode(chunk)
-        self.sequence = (self.sequence + 1) & 0xFFFF
+        frame = self.room_header + self.room_codec.encode(chunk)
         self.injected_frames += 1
-        self.server.relay(self.member, self.room_header + encoded, len(encoded) + 1, self.sequence)
+        if not self.room.ptt:
+            self.sequence = (self.sequence + 1) & 0xFFFF
+            self.server.relay(self.member, frame, len(frame), self.sequence)
+            return
+        cost = len(frame) + 3
+        if self.pending and BATCH_BASE_COST + self.pending_cost + cost > RNS.Link.MDU - BATCH_MARGIN:
+            self.flush()
+        self.pending.append(frame)
+        self.pending_cost += cost
+        if len(self.pending) >= min(MAX_BATCH, max(1, self.room.ptt_jitter_ms // self.room.frame_ms)):
+            self.flush()
+
+    def flush(self):
+        frames = self.pending
+        if not frames:
+            return
+        self.pending = []
+        self.pending_cost = 0
+        base = (self.sequence + 1) & 0xFFFF
+        self.sequence = (self.sequence + len(frames)) & 0xFFFF
+        payload = frames[0] if len(frames) == 1 else frames
+        self.server.relay(self.member, payload, sum(len(frame) for frame in frames), base)
 
 ### ROOM AUDIO ###
     def deliver_rx_loopback(self, frame, member_id, sequence):
@@ -380,6 +404,7 @@ class Call:
         if self.feed:
             self.feed.stop()
         if self.member:
+            self.flush()
             self.server.remove_member(self)
         if self.link and self.link.status == RNS.Link.ACTIVE:
             self.link.teardown()

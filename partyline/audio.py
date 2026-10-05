@@ -161,6 +161,7 @@ class Playout:
         self.low_water = None  
         self.last_shrink_check = time.time()
         self.grew = 0
+        self.shrank = 0
         self.block_frames = max(1, round(self.BLOCK_MS / frame_ms))
         self.lead_blocks = max(1, round(self.LEAD_MS / (self.block_frames * frame_ms)))
         self.lead_frames = self.lead_blocks * self.block_frames
@@ -185,6 +186,9 @@ class Playout:
         self.blocks_out = 0
         self.lost = 0
         self.recovered = 0
+        self.late_discarded = 0
+        self.underruns = 0
+        self.underrun_frames = 0
 
     @property
     def slack(self):
@@ -212,6 +216,7 @@ class Playout:
             frames = member["queue"]
             member["seen"] = time.time()
             member["ending"] = False
+            underrun_frames = member["pending_misses"]
             if member["pending_misses"]:
                 self.concealed += member["pending_misses"]
                 self.grow(member["pending_misses"])
@@ -234,10 +239,16 @@ class Playout:
                         frames[len(frames) - slots_back] = samples
                         self.lost -= 1
                         self.recovered += 1
+                        self.underruns += bool(underrun_frames)
+                        self.underrun_frames += underrun_frames
+                    else:
+                        self.late_discarded += 1
                     return
                 else:
                     frames.append(samples)  # sender restarted or wrapped strangely
 
+            self.underruns += bool(underrun_frames)
+            self.underrun_frames += underrun_frames
             if sequence is not None:
                 member["expect"] = (sequence + 1) & 0xFFFF
             else:
@@ -282,6 +293,7 @@ class Playout:
         self.last_shrink_check = now
         if self.low_water is not None and self.depth > self.depth_min and self.low_water > self.depth // 2:
             self.depth = max(self.depth_min, self.depth - self.low_water // 2)
+            self.shrank += 1
         self.low_water = None
 
     def end_spurt(self, key):
@@ -380,6 +392,41 @@ class Playout:
         for key in [key for key, member in self.members.items() if member.get("gone") and not member["active"]]:
             self.members.pop(key)
         return mixed
+
+    def diagnostics(self):
+        with self.lock:
+            queues = [len(member["queue"]) for member in self.members.values()]
+            out_buffer = self.out_buffer
+            result = {
+                "member_queue_ms": max(queues, default=0) * self.frame_ms,
+                "mixed_queue_ms": round(len(out_buffer) * 1000 / self.samplerate, 1) if out_buffer is not None else 0,
+                "jitter_floor_ms": self.depth_min * self.frame_ms,
+                "jitter_target_ms": self.depth_ms,
+                "jitter_grows": self.grew,
+                "jitter_shrinks": self.shrank,
+                "startup_threshold_ms": (self.depth + self.lead_frames) * self.frame_ms,
+                "buffering_speakers": sum(bool(m["queue"]) and not m["active"] for m in self.members.values()),
+                "playing_speakers": sum(m["active"] for m in self.members.values()),
+                "missing_frames": self.lost,
+                "recovered_frames": self.recovered,
+                "late_or_duplicate_discarded_frames": self.late_discarded,
+                "concealed_frames": self.concealed,
+                "dropped_frames": self.dropped,
+                "playout_underruns": self.underruns,
+                "underrun_ms": self.underrun_frames * self.frame_ms,
+                "starved_speakers": sum(bool(m["pending_misses"]) for m in self.members.values()),
+            }
+        sink_lock = getattr(self.sink, "insert_lock", None) or getattr(self.sink, "lock", None)
+        if sink_lock is not None:
+            with sink_lock:
+                queued = tuple(getattr(self.sink, "frame_deque", getattr(self.sink, "queued", ())))
+        else:
+            queued = tuple(getattr(self.sink, "frame_deque", getattr(self.sink, "queued", ())))
+        result["sink_queue_ms"] = round(sum(len(frame) for frame in queued) * 1000 / self.samplerate, 1)
+        result["receive_queue_ms"] = round(
+            result["member_queue_ms"] + result["mixed_queue_ms"] + result["sink_queue_ms"], 1
+        )
+        return result
 
     def sink_backlog(self):
         backlog = getattr(self.sink, "frame_deque", None)

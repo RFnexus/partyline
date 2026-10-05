@@ -4,7 +4,7 @@ import json
 import os
 import time
 
-from .common import CONFIG_DIR
+from .common import CONFIG_DIR, write_file
 
 SETTINGS_FILE = os.path.join(CONFIG_DIR, "settings.json")
 SERVERS_FILE = os.path.join(CONFIG_DIR, "servers.json")
@@ -35,12 +35,15 @@ DEFAULTS = {
     "tx_gain_db": 0.0,    # microphone make-up gain in dB
     "mic_agc": False,     # automatic gain control on the microphone
     "hide_ptt_notice": False,  
+    "hide_continuous_notice": False,
 
     "window": None,       # window dimensions
     "sash": None,         # divider between chat and tree, in pixels from the left
     "theme": "light",     # light | dark
     "font_size": 10,      # text size in pt
+    "language": "",
     "debug_stats": False, # show bitrates and loss counters in the status bar
+    "edit_rns_config": False,
 
     "sfx": False,         # master switch for sound effects
     "sfx_join": True,     # per event switches
@@ -61,12 +64,9 @@ def _read_json(path, default):
         return default
 
 
-def _write_json(path, data):
+def _write_json(path, data, mode=None):
     os.makedirs(CONFIG_DIR, exist_ok=True)
-    temporary_path = path + ".tmp"
-    with open(temporary_path, "w") as json_file:
-        json.dump(data, json_file, indent=2)
-    os.replace(temporary_path, path)
+    write_file(path, json.dumps(data, indent=2), mode)
 
 
 class Settings(dict):
@@ -103,8 +103,7 @@ class ServerList:
 
     def save(self):
         os.makedirs(CONFIG_DIR, exist_ok=True)
-        _write_json(SERVERS_FILE, self.entries)
-        os.chmod(SERVERS_FILE, 0o600) 
+        _write_json(SERVERS_FILE, self.entries, 0o600)
 
     def add(self, **fields):
         entry = self._normalise(fields)

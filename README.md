@@ -8,14 +8,29 @@ A group voice application for Reticulum, built on [LXST](https://github.com/mark
 <img width="1915" height="1007" alt="Screenshot from 2026-09-04 07-05-40" src="https://github.com/user-attachments/assets/bb9c689b-2344-4627-a640-192582575b45" />
 
 ## Features
-- Encrypted, realtime group voice over any Reticulum transport capable of >6 kilobits per second
+- Encrypted, realtime group voice and audio over any Reticulum transport capable of >6 kilobits per second
 - An easy to host lightweight server and protocol. Spin up a Partyline server in under 30 seconds. 
 - Per room access and channel control. open, identified users only, allow lists of identity hashes, or a password. Servers can also require a password or an allow list
 - Dial-in: rnphone and other LXST clients such as Sideband and MeshChatX can call the server and land in a room too, when enabled
 - Rooms each with its own LXST codec configurable by the server. Opus for fast links, Codec2 down to 700 bps for slow ones.
-- GUI and terminal client
+- GUI and terminal client with multiple language support
 
 ## Installation
+Requires Python 3.11 or newer
+
+    pip install partyline
+
+For a system wide push to talk key, add the optional extra:
+
+    pip install "partyline[hotkeys]"
+
+The graphical client uses Tk, which pip cannot install. On most OS/Distros it may already be installed by your system. If not:
+
+On Debian or Ubuntu run
+`sudo apt install python3-tk`, on Fedora `sudo dnf install python3-tkinter`. 
+
+### Installing from source
+
 Requires Python 3.11 or newer, Reticulum, and LXST
 
     git clone https://github.com/RFnexus/partyline
@@ -44,7 +59,7 @@ Connect opens the server browser. Add a server by it's hash or use the server br
 <img width="1914" height="1006" alt="Screenshot from 2026-09-04 07-06-15" src="https://github.com/user-attachments/assets/1372962a-fcf9-421e-829c-2a1426a66cb5" />
 
 
-Terminal client:
+### Terminal client
 
     partyline-client HASH --name Bob --room Lobby
 
@@ -112,7 +127,7 @@ Server operators can also configure broadcast-only rooms for high quality music 
 ```
 <img width="1181" height="648" alt="Screenshot from 2026-09-05 17-07-35" src="https://github.com/user-attachments/assets/f124833b-cb31-453f-a91f-9e61a171624c" />
 
-An example Music Bot can be found under `bots/music_bot.py`
+An example Music Bot can be found under `bots/music_bot.py`. When Partyline is installed with pip, run it with `python3 -m partyline.bots.music_bot`
 
 ### Push to talk (slow link) Rooms
 PTT, or slow-mode rooms, are rooms designed to work over slower links like LoRa, bare copper wire bitbashing, and packet radio. Anything with more than a steady ~3.5 kbps throughput can use a PTT room. They can co-exist with regular rooms in a Partyline server, allowing both fast and slow clients to communicate over voice. 
@@ -124,6 +139,23 @@ Mark any room push to talk with `"ptt": true`. Optionally set `"ptt_jitter_ms"` 
 {"name": "LoRa 1200", "profile": "c2-1200", "ptt": true, "description": "Slow-link push to talk"}
 {"name": "Packet Radio Net 700",  "profile": "c2-700",  "ptt": true, "ptt_jitter_ms": 9000}
 ```
+
+### LLM Disclosure Notice 
+
+Kimi K3 (https://www.kimi.com/en) third party hosted API was used for the following tasks:
+- I18N localization and UI `gettext()` implementation
+- Translation of UI elements and of eo, es, nl, and ru PO files
+- Misc debugging and creation of `rnsconfig.py` RNS helper utilities
+
+### UI Translation
+
+The .po files are located in `partyline/locale/`
+
+To update a translation, change the `msgstr` line under its English `msgid` 
+
+To add a language, copy `partyline.pot` to a new `.po` file and add it to `LANGUAGES` in `partyline/i18n.py`. 
+
+Run `python partyline/locale/compile.py`, then open a pull request with your changes or submit it to the LXMF address: 
 
 ### Credits
 - [Reticulum](https://github.com/markqvist/Reticulum) and [LXST](https://github.com/markqvist/lxst) by Mark Qvist

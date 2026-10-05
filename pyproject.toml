@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -8,11 +8,11 @@ description = "A group voice application for Reticulum built on LXST"
 readme = "README.md"
 license = "Unlicense"
 license-files = ["LICENSE"]
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 dynamic = ["version"]
 dependencies = [
-    "rns>=1.4",
-    "lxst>=0.5",
+    "rns>=1.5",
+    "lxst>0.5",
     "numpy",
 ]
 classifiers = [
@@ -33,10 +33,13 @@ partyline-client = "partyline.client:main"
 Homepage = "https://github.com/RFnexus/partyline"
 
 [tool.setuptools]
-packages = ["partyline"]
+packages = ["partyline", "partyline.bots"]
+
+[tool.setuptools.package-dir]
+"partyline.bots" = "bots"
 
 [tool.setuptools.package-data]
-partyline = ["icons/*.png", "icons/LICENSE", "sounds/*.wav", "sounds/LICENSE", "partyline.png"]
+partyline = ["icons/*.png", "icons/LICENSE", "sounds/*.wav", "sounds/LICENSE", "partyline.png", "locale/*.pot", "locale/*.po", "locale/*/LC_MESSAGES/*.mo"]
 
 [tool.setuptools.dynamic]
 version = {attr = "partyline.common.APP_VERSION"}

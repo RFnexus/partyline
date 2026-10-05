@@ -13,10 +13,13 @@ from tkinter import font as tkfont
 import RNS
 from LXST import APP_NAME
 
-from .client import Client, Config, MODES, MAX_JITTER_MS, default_name, audio_devices, tune_gc
+from .client import Client, Config, MODES, MAX_JITTER_MS, CALL_OUTCOMES, ADMIN_COMMANDS, default_name, audio_devices, tune_gc
 from .common import *
 from .prefs import Settings, ServerList, IDENTITY_FILE
 from .sounds import SoundPlayer
+from . import reticulum, diagnostics
+from .audio_ui import AudioSetupDialog, DiagnosticsDialog
+from .i18n import _, N_, ngettext, LANGUAGES, install as install_language
 
 ### ICONS / MISC ###
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -32,13 +35,28 @@ except Exception:
 
 REFRESH_MS = 100
 HOTKEY_MS = 25
+RNS_POLL_MS = 3000
+RNS_MENU_INTERFACES = 8
 TALKING_SECONDS = 0.35  # a user is "talking" if a frame arrived this recently
 RELEASE_MS = 60  # X11 auto-repeat sends release/press pairs; a release counts only if no press follows at once
-DEFAULT_DEVICE = "(system default)"
+DEFAULT_DEVICE = N_("(system default)")
 USER_ICON_KINDS = ("user_idle", "user_talking", "user_muted", "user_deaf", "user_localmute", "user_keyboard")
-CHAT_ONLY_WARNING = (
+RNS_ICON_COLORS = {"rns_online": "#3fb950", "rns_offline": "#d9534f", "rns_unknown": "#f0b429", "rns_off": "#8a8f98"}
+CHAT_COMMANDS = N_(
+    "Commands: /join ROOM [PASSWORD], /say TEXT, /poke USER TEXT, /who, /mute, /unmute, /deaf, /undeaf, "
+    "/kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, "
+    "/answer CALL, /reject CALL, /pair HASH, /unpair HASH, /phones, /motd TEXT, /roomadd NAME[:PROFILE], /roomdel ROOM"
+)
+CHAT_ONLY_WARNING = N_(
     "Connect chat-only?\n\nYou will not be able to talk or hear anyone. Only the chat window works. "
     "Use this on very slow links where voice cannot get through."
+)
+CONTINUOUS_WARNING = N_(
+    "Continuous keeps your microphone open the whole time you are in a room.\n\n"
+    "• Everyone in the room hears your background noise, even when you are not speaking.\n"
+    "• It sends audio constantly, which uses a lot of bandwidth on slow links.\n"
+    "• After a network hiccup, others may hear you with a delay that only clears when you mute or pause.\n\n"
+    "Push To Talk or Voice Activity works better for most people. Use Continuous anyway?"
 )
 
 PALETTES = {
@@ -135,6 +153,8 @@ def make_icon(kind, size=14, operator=False):
             image.put("#d9534f", (offset, offset))
             if offset > 2:
                 image.put("#d9534f", (offset, offset - 1))
+    elif kind in RNS_ICON_COLORS:
+        disc(RNS_ICON_COLORS[kind])
 
     if operator:
         box("#f0b429", size - 6, 0, size - 1, 5)
@@ -352,7 +372,7 @@ class Dialog(tk.Toplevel):
 
 class ServerEditDialog(Dialog):
     def __init__(self, parent, entry=None, default_user_name=""):
-        super().__init__(parent, "Edit Server" if entry else "Add Server")
+        super().__init__(parent, (_("Edit Server") if entry else _("Add Server")))
         entry = entry or {}
         form = ttk.Frame(self, padding=10)
         form.pack(fill="both", expand=True)
@@ -379,7 +399,7 @@ class ServerEditDialog(Dialog):
         buttons = ttk.Frame(self, padding=(10, 0, 10, 10))
         buttons.pack(fill="x")
         ttk.Button(buttons, text="OK", command=self.ok).pack(side="right")
-        ttk.Button(buttons, text="Cancel", command=self.cancel).pack(side="right", padx=6)
+        ttk.Button(buttons, text=_("Cancel"), command=self.cancel).pack(side="right", padx=6)
         self.bind("<Return>", lambda event: self.ok())
 
     def ok(self):
@@ -387,7 +407,7 @@ class ServerEditDialog(Dialog):
         try:
             parse_hash(values["hash"])
         except ValueError as error:
-            messagebox.showerror("Address", f"Address {error}", parent=self)
+            messagebox.showerror(_("Address"), _("Address {0}").format(error), parent=self)
             return
         if not values["label"]:
             values["label"] = values["hash"][:12]
@@ -397,7 +417,7 @@ class ServerEditDialog(Dialog):
 
 class ConnectDialog(Dialog):
     def __init__(self, app):
-        super().__init__(app.root, "Connect to Server")
+        super().__init__(app.root, _("Connect to Server"))
         self.app = app
         self.minsize(560, 340)
 
@@ -405,8 +425,9 @@ class ConnectDialog(Dialog):
         self.notebook.pack(fill="both", expand=True, padx=10, pady=(10, 4))
         favourites_tab = ttk.Frame(self.notebook)
         discovered_tab = ttk.Frame(self.notebook)
-        self.notebook.add(favourites_tab, text="Favorites")
-        self.notebook.add(discovered_tab, text="Discovered")
+        self.discovered_tab = discovered_tab
+        self.notebook.add(favourites_tab, text=_("Favorites"))
+        self.notebook.add(discovered_tab, text=_("Discovered ({0})").format(0))
 
         self.favourites = ttk.Treeview(
             favourites_tab, columns=("server", "room", "user"), show="tree headings", selectmode="browse"
@@ -422,7 +443,7 @@ class ConnectDialog(Dialog):
 
         filter_frame = ttk.Frame(discovered_tab)
         filter_frame.pack(side="top", fill="x", pady=(0, 4))
-        ttk.Label(filter_frame, text="Filter").pack(side="left")
+        ttk.Label(filter_frame, text=_("Filter")).pack(side="left")
         self.discovered_filter = tk.StringVar()
         ttk.Entry(filter_frame, textvariable=self.discovered_filter).pack(side="left", fill="x", expand=True, padx=(6, 0))
         self.discovered_filter.trace_add("write", lambda *event: self.refresh_discovered())
@@ -451,17 +472,17 @@ class ConnectDialog(Dialog):
 
         buttons = ttk.Frame(self, padding=(10, 4, 10, 10))
         buttons.pack(fill="x")
-        ttk.Button(buttons, text="Add New...", command=self.add).pack(side="left")
-        self.edit_button = ttk.Button(buttons, text="Edit...", command=self.edit)
+        ttk.Button(buttons, text=_("Add New..."), command=self.add).pack(side="left")
+        self.edit_button = ttk.Button(buttons, text=_("Edit..."), command=self.edit)
         self.edit_button.pack(side="left", padx=4)
-        self.remove_button = ttk.Button(buttons, text="Remove", command=self.remove)
+        self.remove_button = ttk.Button(buttons, text=_("Remove"), command=self.remove)
         self.remove_button.pack(side="left")
-        self.favourite_button = ttk.Button(buttons, text="Add to Favorites", command=self.favourite)
+        self.favourite_button = ttk.Button(buttons, text=_("Add to Favorites"), command=self.favourite)
         self.favourite_button.pack(side="left", padx=4)
         # packed right to left: Cancel at the edge, then Chat only, then Connect
-        ttk.Button(buttons, text="Cancel", command=self.cancel).pack(side="right")
-        ttk.Button(buttons, text="Chat only", command=self.connect_chat_only).pack(side="right", padx=6)
-        ttk.Button(buttons, text="Connect", command=self.connect, default="active").pack(side="right")
+        ttk.Button(buttons, text=_("Cancel"), command=self.cancel).pack(side="right")
+        ttk.Button(buttons, text=_("Chat only"), command=self.connect_chat_only).pack(side="right", padx=6)
+        ttk.Button(buttons, text=_("Connect"), command=self.connect, default="active").pack(side="right")
 
         self.notebook.bind("<<NotebookTabChanged>>", lambda event: self.tab_changed())
         self.fill_favourites()
@@ -503,7 +524,9 @@ class ConnectDialog(Dialog):
         query = self.discovered_filter.get().strip().lower()
         self.discovered.delete(*self.discovered.get_children())
         self.discovered_descriptions = {}
-        for server in self.app.discovery.snapshot():
+        servers = self.app.discovery.snapshot()
+        self.notebook.tab(self.discovered_tab, text=_("Discovered ({0})").format(len(servers)))
+        for server in servers:
             language = server.get("language") or ""
             country = server.get("country") or ""
             description = server.get("description") or ""
@@ -593,7 +616,7 @@ class ConnectDialog(Dialog):
 
     def remove(self):
         entry = self.selected_favourite()
-        if entry and messagebox.askyesno("Remove", f"Remove {entry['label']!r} from favorites?", parent=self):
+        if entry and messagebox.askyesno(_("Remove"), _("Remove {0!r} from favorites?").format(entry['label']), parent=self):
             self.app.servers.remove(entry)
             self.fill_favourites()
 
@@ -612,7 +635,7 @@ class ConnectDialog(Dialog):
             self.notebook.select(0)
 
     def connect_chat_only(self):
-        if messagebox.askyesno("Chat-only", CHAT_ONLY_WARNING, parent=self):
+        if messagebox.askyesno(_("Chat-only"), _(CHAT_ONLY_WARNING), parent=self):
             self.connect(chat_only=True)
 
     def connect(self, chat_only=False):
@@ -642,7 +665,7 @@ class ConnectDialog(Dialog):
 
 class SettingsDialog(Dialog):
     def __init__(self, app):
-        super().__init__(app.root, "Settings")
+        super().__init__(app.root, _("Settings"))
         self.app = app
         settings = app.settings
         self.capturing = False
@@ -652,79 +675,79 @@ class SettingsDialog(Dialog):
 
         ### AUDIO INPUT ###
         input_tab = ttk.Frame(notebook, padding=10)
-        notebook.add(input_tab, text="Audio Input")
-        self.input_var = tk.StringVar(value=settings["input"] or DEFAULT_DEVICE)
-        ttk.Label(input_tab, text="Device").grid(row=0, column=0, sticky="w", pady=3)
+        notebook.add(input_tab, text=_("Audio Input"))
+        self.input_var = tk.StringVar(value=settings["input"] or _(DEFAULT_DEVICE))
+        ttk.Label(input_tab, text=_("Device")).grid(row=0, column=0, sticky="w", pady=3)
         input_box = ttk.Combobox(
             input_tab,
             textvariable=self.input_var,
-            values=[DEFAULT_DEVICE] + microphone_names,
+            values=[_(DEFAULT_DEVICE)] + microphone_names,
             state="readonly",
             width=44,
         )
         input_box.grid(row=0, column=1, columnspan=2, sticky="ew", pady=3)
 
-        transmit_frame = ttk.LabelFrame(input_tab, text="Transmission", padding=8)
+        transmit_frame = ttk.LabelFrame(input_tab, text=_("Transmission"), padding=8)
         transmit_frame.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(10, 4))
         self.mode_var = tk.StringVar(value=settings["mode"])
-        for text, mode in (("Push To Talk", "ptt"), ("Voice Activity", "vox"), ("Continuous", "open")):
+        for text, mode in ((_("Push To Talk"), "ptt"), (_("Voice Activity"), "vox"), (_("Continuous"), "open")):
             ttk.Radiobutton(transmit_frame, text=text, value=mode, variable=self.mode_var).pack(
                 side="left", padx=(0, 12)
             )
 
-        ptt_frame = ttk.LabelFrame(input_tab, text="Push To Talk", padding=8)
+        ptt_frame = ttk.LabelFrame(input_tab, text=_("Push To Talk"), padding=8)
         ptt_frame.grid(row=2, column=0, columnspan=3, sticky="ew", pady=4)
         self.key_spec = settings["ptt_key"]
         self.key_var = tk.StringVar(value=pretty_key(self.key_spec))
-        ttk.Label(ptt_frame, text="Shortcut").grid(row=0, column=0, sticky="w")
+        ttk.Label(ptt_frame, text=_("Shortcut")).grid(row=0, column=0, sticky="w")
         ttk.Entry(ptt_frame, textvariable=self.key_var, state="readonly", width=22).grid(
             row=0, column=1, sticky="w", padx=6
         )
-        self.set_button = ttk.Button(ptt_frame, text="Set...", command=self.capture_key)
+        self.set_button = ttk.Button(ptt_frame, text=_("Set..."), command=self.capture_key)
         self.set_button.grid(row=0, column=2, padx=2)
-        ttk.Button(ptt_frame, text="Clear", command=lambda: self.set_key("")).grid(row=0, column=3, padx=2)
+        ttk.Button(ptt_frame, text=_("Clear"), command=lambda: self.set_key("")).grid(row=0, column=3, padx=2)
         self.toggle_var = tk.BooleanVar(value=settings["ptt_toggle"])
-        ttk.Checkbutton(ptt_frame, text="Toggle: press once to talk, again to stop", variable=self.toggle_var).grid(
+        ttk.Checkbutton(ptt_frame, text=_("Toggle: press once to talk, again to stop"), variable=self.toggle_var).grid(
             row=1, column=0, columnspan=4, sticky="w", pady=(6, 0)
         )
         self.global_var = tk.BooleanVar(value=settings["ptt_global"] and pynput_keyboard is not None)
         global_box = ttk.Checkbutton(
-            ptt_frame, text="System-wide shortcut (works while another window has focus)", variable=self.global_var
+            ptt_frame, text=_("System-wide shortcut"), variable=self.global_var
         )
         global_box.grid(row=2, column=0, columnspan=4, sticky="w")
         if pynput_keyboard is None:
             global_box.state(["disabled"])
-            ttk.Label(ptt_frame, text="install python3-pynput for system-wide shortcuts", foreground="#666").grid(
+            ttk.Label(ptt_frame, text=_("install python3-pynput for system-wide shortcuts"), foreground="#666").grid(
                 row=3, column=0, columnspan=4, sticky="w"
             )
 
-        vad_frame = ttk.LabelFrame(input_tab, text="Voice Activity", padding=8)
+        vad_frame = ttk.LabelFrame(input_tab, text=_("Voice Activity"), padding=8)
         vad_frame.grid(row=3, column=0, columnspan=3, sticky="ew", pady=4)
         self.vad_var = tk.DoubleVar(value=settings["vad_db"])
         self.hang_var = tk.DoubleVar(value=settings["vad_hang"])
-        ttk.Label(vad_frame, text="Threshold").grid(row=0, column=0, sticky="w")
+        ttk.Label(vad_frame, text=_("Threshold")).grid(row=0, column=0, sticky="w")
         ttk.Scale(vad_frame, from_=-80, to=0, variable=self.vad_var, orient="horizontal", length=220).grid(
             row=0, column=1, sticky="ew", padx=6
         )
         self.vad_label = ttk.Label(vad_frame, width=8)
         self.vad_label.grid(row=0, column=2)
-        ttk.Label(vad_frame, text="Hang time").grid(row=1, column=0, sticky="w")
+        ttk.Label(vad_frame, text=_("Hang time")).grid(row=1, column=0, sticky="w")
         ttk.Scale(vad_frame, from_=0.1, to=2.0, variable=self.hang_var, orient="horizontal", length=220).grid(
             row=1, column=1, sticky="ew", padx=6
         )
         self.hang_label = ttk.Label(vad_frame, width=8)
         self.hang_label.grid(row=1, column=2)
-        ttk.Label(vad_frame, text="Input level").grid(row=2, column=0, sticky="w", pady=(6, 0))
+        ttk.Label(vad_frame, text=_("Input level")).grid(row=2, column=0, sticky="w", pady=(6, 0))
         self.meter = ttk.Progressbar(vad_frame, maximum=80, length=220)
         self.meter.grid(row=2, column=1, sticky="ew", padx=6, pady=(6, 0))
-        self.meter_label = ttk.Label(vad_frame, width=8)
+        self.meter_label = ttk.Label(vad_frame, width=12)
         self.meter_label.grid(row=2, column=2, pady=(6, 0))
         vad_frame.columnconfigure(1, weight=1)
 
-        mic_frame = ttk.LabelFrame(input_tab, text="Microphone", padding=8)
+        mic_frame = ttk.LabelFrame(input_tab, text=_("Microphone"), padding=8)
         mic_frame.grid(row=4, column=0, columnspan=3, sticky="ew", pady=4)
         self.tx_gain_var = tk.DoubleVar(value=float(settings["tx_gain_db"]))
-        ttk.Label(mic_frame, text="TX gain").grid(row=0, column=0, sticky="w")
+        ttk.Label(mic_frame, text=_("TX gain")).grid(row=0, column=0, sticky="w")
         ttk.Scale(mic_frame, from_=-20, to=20, variable=self.tx_gain_var, orient="horizontal", length=220).grid(
             row=0, column=1, sticky="ew", padx=6
         )
@@ -732,20 +755,20 @@ class SettingsDialog(Dialog):
         self.tx_gain_label.grid(row=0, column=2)
         self.agc_var = tk.BooleanVar(value=bool(settings["mic_agc"]))
         ttk.Checkbutton(
-            mic_frame, text="Automatic gain control (AGC)", variable=self.agc_var
+            mic_frame, text=_("Automatic gain control (AGC)"), variable=self.agc_var
         ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(6, 0))
         mic_frame.columnconfigure(1, weight=1)
         input_tab.columnconfigure(1, weight=1)
 
         ### AUDIO OUTPUT ###
         output_tab = ttk.Frame(notebook, padding=10)
-        notebook.add(output_tab, text="Audio Output")
-        self.output_var = tk.StringVar(value=settings["output"] or DEFAULT_DEVICE)
-        ttk.Label(output_tab, text="Device").grid(row=0, column=0, sticky="w", pady=3)
+        notebook.add(output_tab, text=_("Audio Output"))
+        self.output_var = tk.StringVar(value=settings["output"] or _(DEFAULT_DEVICE))
+        ttk.Label(output_tab, text=_("Device")).grid(row=0, column=0, sticky="w", pady=3)
         output_box = ttk.Combobox(
             output_tab,
             textvariable=self.output_var,
-            values=[DEFAULT_DEVICE] + speaker_names,
+            values=[_(DEFAULT_DEVICE)] + speaker_names,
             state="readonly",
             width=44,
         )
@@ -753,10 +776,10 @@ class SettingsDialog(Dialog):
 
         self.low_latency_var = tk.BooleanVar(value=settings["low_latency"])
         ttk.Checkbutton(
-            output_tab, text="Check for Android only (not applicable yet)", variable=self.low_latency_var
+            output_tab, text=_("For Android"), variable=self.low_latency_var
         ).grid(row=1, column=0, columnspan=2, sticky="w", pady=6)
 
-        ttk.Label(output_tab, text="Jitter buffer").grid(row=2, column=0, sticky="w", pady=3)
+        ttk.Label(output_tab, text=_("Jitter buffer")).grid(row=2, column=0, sticky="w", pady=3)
         jitter_row = ttk.Frame(output_tab)
         jitter_row.grid(row=2, column=1, sticky="ew", pady=3)
         self.jitter_var = tk.IntVar(value=int(settings["jitter_ms"]))
@@ -773,30 +796,27 @@ class SettingsDialog(Dialog):
         self.jitter_label = ttk.Label(jitter_row, width=8)
         self.jitter_label.pack(side="left", padx=6)
 
-        ttk.Label(
-            output_tab, text="The codec and frame size are set by the server for each room.", foreground="#666"
-        ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(12, 0))
         self.debug_stats_var = tk.BooleanVar(value=settings["debug_stats"])
         ttk.Checkbutton(
             output_tab,
-            text="Display debug stats (bitrates and loss counters in the status bar)",
+            text=_("Display debug stats and audio diagnostics"),
             variable=self.debug_stats_var,
         ).grid(row=4, column=0, columnspan=2, sticky="w", pady=(12, 0))
 
         self.advanced_shown = tk.BooleanVar(value=False)
         ttk.Checkbutton(
-            output_tab, text="Advanced settings", variable=self.advanced_shown, command=self.toggle_advanced
+            output_tab, text=_("Advanced settings"), variable=self.advanced_shown, command=self.toggle_advanced
         ).grid(row=5, column=0, columnspan=2, sticky="w", pady=(14, 0))
         self.advanced_frame = ttk.Frame(output_tab)
         self.advanced_frame.grid(row=6, column=0, columnspan=2, sticky="ew")
 
         ttk.Label(
             self.advanced_frame,
-            text="Only modify these settings if you know what you are doing",
+            text=_("Only modify these settings if you know what you are doing"),
             foreground="#c0392b",
         ).grid(row=0, column=0, columnspan=2, sticky="w", pady=(4, 6))
 
-        ttk.Label(self.advanced_frame, text="Frames per packet").grid(row=1, column=0, sticky="w", pady=3)
+        ttk.Label(self.advanced_frame, text=_("Frames per packet")).grid(row=1, column=0, sticky="w", pady=3)
         batch_row = ttk.Frame(self.advanced_frame)
         batch_row.grid(row=1, column=1, sticky="w", pady=3)
         self.batch_var = tk.IntVar(value=int(settings["frames_per_packet"]))
@@ -807,14 +827,14 @@ class SettingsDialog(Dialog):
         self.fill_mtu_var = tk.BooleanVar(value=bool(settings["fill_mtu"]))
         ttk.Checkbutton(
             self.advanced_frame,
-            text="Fill the link MTU",
+            text=_("Fill the link MTU"),
             variable=self.fill_mtu_var,
         ).grid(row=2, column=0, columnspan=2, sticky="w", pady=(6, 0))
 
         self.max_jitter_var = tk.BooleanVar(value=bool(settings["max_jitter"]))
         ttk.Checkbutton(
             self.advanced_frame,
-            text="Enable max jitter buffer",
+            text=_("Enable max jitter buffer"),
             variable=self.max_jitter_var,
             command=self.toggle_max_jitter,
         ).grid(row=3, column=0, columnspan=2, sticky="w", pady=(6, 0))
@@ -824,39 +844,47 @@ class SettingsDialog(Dialog):
 
         ### APPEARANCE ###
         appearance_tab = ttk.Frame(notebook, padding=10)
-        notebook.add(appearance_tab, text="Appearance")
-        ttk.Label(appearance_tab, text="Text size").grid(row=0, column=0, sticky="w", pady=3)
+        notebook.add(appearance_tab, text=_("Appearance and Language"))
+        ttk.Label(appearance_tab, text=_("Text size")).grid(row=0, column=0, sticky="w", pady=3)
 
         self.font_size_var = tk.IntVar(value=int(settings["font_size"]))
         ttk.Spinbox(appearance_tab, from_=8, to=24, width=5, textvariable=self.font_size_var).grid(
             row=0, column=1, sticky="w", pady=3, padx=6
         )
 
-        ttk.Label(appearance_tab, text="points").grid(
+        ttk.Label(appearance_tab, text=_("points")).grid(
             row=0, column=2, sticky="w"
         )
 
-        ttk.Checkbutton(appearance_tab, text="Dark mode", variable=app.dark_var, command=app.toggle_theme).grid(
+        ttk.Checkbutton(appearance_tab, text=_("Dark mode"), variable=app.dark_var, command=app.toggle_theme).grid(
             row=1, column=0, columnspan=3, sticky="w", pady=(12, 0)
+        )
+        ttk.Label(appearance_tab, text=_("Language")).grid(row=2, column=0, sticky="w", pady=(12, 0))
+        codes = [code for code, label in LANGUAGES]
+        self.language_box = ttk.Combobox(appearance_tab, state="readonly", width=16, values=[label for code, label in LANGUAGES])
+        self.language_box.current(codes.index(settings["language"]) if settings["language"] in codes else 0)
+        self.language_box.grid(row=2, column=1, sticky="w", pady=(12, 0), padx=(8, 0))
+        ttk.Label(appearance_tab, text=_("Takes effect after a restart"), foreground=app.palette["muted"]).grid(
+            row=2, column=2, sticky="w", pady=(12, 0), padx=(8, 0)
         )
 
         ### SOUNDS ###
 
         sounds_tab = ttk.Frame(notebook, padding=10)
-        notebook.add(sounds_tab, text="Sounds")
+        notebook.add(sounds_tab, text=_("Sound FX"))
         self.sfx_var = tk.BooleanVar(value=settings["sfx"])
-        ttk.Checkbutton(sounds_tab, text="Play sound effects", variable=self.sfx_var, command=self.sfx_toggled).grid(
+        ttk.Checkbutton(sounds_tab, text=_("Play sound effects"), variable=self.sfx_var, command=self.sfx_toggled).grid(
             row=0, column=0, columnspan=3, sticky="w", pady=(0, 8)
         )
         self.sfx_vars = {}
         self.sfx_rows = []
         sound_rows = (
-            ("sfx_join", "Someone joins the server", "join"),
-            ("sfx_leave", "Someone leaves the server", "leave"),
-            ("sfx_room", "Someone enters or leaves your room", "room_join"),
-            ("sfx_disconnect", "Disconnected from the server", "disconnect"),
-            ("sfx_ptt", "Push to talk on and off", "ptt_on"),
-            ("sfx_mute", "Muting and deafening", "mute_on"),
+            ("sfx_join", _("Someone joins the server"), "join"),
+            ("sfx_leave", _("Someone leaves the server"), "leave"),
+            ("sfx_room", _("Someone enters or leaves your room"), "room_join"),
+            ("sfx_disconnect", _("Disconnected from the server"), "disconnect"),
+            ("sfx_ptt", _("Push to talk on and off"), "ptt_on"),
+            ("sfx_mute", _("Muting and deafening"), "mute_on"),
         )
         for row, (key, text, preview_event) in enumerate(sound_rows, 1):
             variable = tk.BooleanVar(value=settings[key])
@@ -864,47 +892,44 @@ class SettingsDialog(Dialog):
             checkbox = ttk.Checkbutton(sounds_tab, text=text, variable=variable)
             checkbox.grid(row=row, column=0, sticky="w", padx=(20, 12), pady=2)
             play_button = ttk.Button(
-                sounds_tab, text="Play", width=6, command=lambda event=preview_event: app.sounds.play(event, force=True)
+                sounds_tab, text=_("Play"), width=6, command=lambda event=preview_event: app.sounds.play(event, force=True)
             )
             play_button.grid(row=row, column=1, pady=2)
             self.sfx_rows.append((checkbox, play_button))
-        ttk.Label(
-            sounds_tab,
-            text="test placeholder",
-            foreground="#666",
-        ).grid(row=len(sound_rows) + 1, column=0, columnspan=3, sticky="w", pady=(12, 0))
         self.sfx_toggled()
 
         ### USER ###
         user_tab = ttk.Frame(notebook, padding=10)
-        notebook.add(user_tab, text="User")
+        notebook.add(user_tab, text=_("User"))
         self.name_var = tk.StringVar(value=settings["name"] or app.display_name())
-        ttk.Label(user_tab, text="Display name").grid(row=0, column=0, sticky="w", pady=3)
+        ttk.Label(user_tab, text=_("Display name")).grid(row=0, column=0, sticky="w", pady=3)
         ttk.Entry(user_tab, textvariable=self.name_var, width=32).grid(row=0, column=1, sticky="w", pady=3)
+        ttk.Label(user_tab, text=_("Applies after reconnecting."), foreground="#666").grid(
+            row=1, column=1, columnspan=2, sticky="w", pady=(0, 6)
+        )
 
-        ttk.Label(user_tab, text="Identity hash").grid(row=1, column=0, sticky="w", pady=3)
+        ttk.Label(user_tab, text=_("Identity hash")).grid(row=2, column=0, sticky="w", pady=3)
         identity_var = tk.StringVar(value=app.identity.hash.hex())
         ttk.Entry(user_tab, textvariable=identity_var, state="readonly", width=36).grid(
-            row=1, column=1, sticky="w", pady=3
+            row=2, column=1, sticky="w", pady=3
         )
-        ttk.Button(user_tab, text="Copy", command=lambda: self.copy_text(identity_var.get())).grid(
-            row=1, column=2, padx=4
+        ttk.Button(user_tab, text=_("Copy"), command=lambda: self.copy_text(identity_var.get())).grid(
+            row=2, column=2, padx=4
         )
         ttk.Label(
             user_tab,
-            text="Give this hash to a server operator to be put on an allow list.\n"
-            "A name change takes effect on the next connection.",
+            text=_("Share with an operator for allow-list access."),
             foreground="#666",
-        ).grid(row=2, column=0, columnspan=3, sticky="w", pady=(10, 0))
+        ).grid(row=3, column=1, columnspan=2, sticky="w", pady=(0, 6))
 
 
 
         ### BUTTONS ###
         buttons = ttk.Frame(self, padding=(10, 4, 10, 10))
         buttons.pack(fill="x")
-        ttk.Button(buttons, text="Cancel", command=self.cancel).pack(side="right")
+        ttk.Button(buttons, text=_("Cancel"), command=self.cancel).pack(side="right")
         ttk.Button(buttons, text="OK", command=self.ok).pack(side="right", padx=6)
-        ttk.Button(buttons, text="Apply", command=self.apply).pack(side="right")
+        ttk.Button(buttons, text=_("Apply"), command=self.apply).pack(side="right")
 
         self.bind("<KeyPress>", self.tk_key, add="+")
         self.tick()
@@ -923,13 +948,13 @@ class SettingsDialog(Dialog):
         self.key_spec = spec
         self.key_var.set(pretty_key(spec))
         self.capturing = False
-        self.set_button.config(text="Set...")
+        self.set_button.config(text=_("Set..."))
         self.app.hotkeys.capture = False
 
     def capture_key(self):
         self.capturing = True
-        self.key_var.set("press a key or mouse button...")
-        self.set_button.config(text="waiting")
+        self.key_var.set(_("press a key or mouse button..."))
+        self.set_button.config(text=_("waiting"))
         hotkeys = self.app.hotkeys
         while not hotkeys.captured_keys.empty():
             hotkeys.captured_keys.get_nowait()  # nothing stale from an earlier attempt
@@ -945,16 +970,16 @@ class SettingsDialog(Dialog):
     def tick(self):
         if not self.winfo_exists():
             return
-        self.vad_label.config(text=f"{self.vad_var.get():.0f} dB")
+        self.vad_label.config(text=_("{0:.0f} dB").format(self.vad_var.get()))
         self.hang_label.config(text=f"{self.hang_var.get():.1f} s")
-        self.tx_gain_label.config(text=f"{self.tx_gain_var.get():+.0f} dB")
-        self.jitter_label.config(text=f"{self.jitter_var.get()} ms")
+        self.tx_gain_label.config(text=_("{0:+.0f} dB").format(self.tx_gain_var.get()))
+        self.jitter_label.config(text=_("{0} ms").format(self.jitter_var.get()))
         if self.app.client:
             level = self.app.client.level
         else:
             level = -120.0
         self.meter["value"] = max(0, level + 80)
-        self.meter_label.config(text=f"{level:.0f} dB" if level > -119 else "no input")
+        self.meter_label.config(text=(_("{0:.0f} dB").format(level) if level > -119 else _("no input")))
         if self.capturing and self.app.hotkeys.active:
             try:
                 self.set_key(self.app.hotkeys.captured_keys.get_nowait())
@@ -978,11 +1003,14 @@ class SettingsDialog(Dialog):
 
     def apply(self):
         settings = self.app.settings
+        if not self.app.confirm_continuous(self, self.mode_var.get()):
+            self.mode_var.set(settings["mode"])
+            return False
         input_name = self.input_var.get()
         output_name = self.output_var.get()
         settings.update(
-            input=None if input_name == DEFAULT_DEVICE else input_name,
-            output=None if output_name == DEFAULT_DEVICE else output_name,
+            input=None if input_name == _(DEFAULT_DEVICE) else input_name,
+            output=None if output_name == _(DEFAULT_DEVICE) else output_name,
             low_latency=self.low_latency_var.get(),
             mode=self.mode_var.get(),
             ptt_key=self.key_spec,
@@ -999,6 +1027,7 @@ class SettingsDialog(Dialog):
             max_jitter=self.max_jitter_var.get(),
             debug_stats=self.debug_stats_var.get(),
             font_size=max(8, min(24, int(self.font_size_var.get() or 10))),
+            language=LANGUAGES[self.language_box.current()][0],
             sfx=self.sfx_var.get(),
             **{key: variable.get() for key, variable in self.sfx_vars.items()},
         )
@@ -1006,7 +1035,9 @@ class SettingsDialog(Dialog):
         self.app.apply_settings()
 
     def ok(self):
-        self.apply()
+        if self.apply() is False:
+            return
+        self.app.hotkeys.capture = False
         self.destroy()
 
     def cancel(self):
@@ -1019,7 +1050,7 @@ class VolumeDialog(tk.Toplevel):
         super().__init__(app.root)
         self.app = app
         self.user = user
-        self.title(f"Local Volume: {user.name}")
+        self.title(_("Local Volume: {0}").format(user.name))
         self.transient(app.root)
         self.resizable(False, False)
 
@@ -1040,8 +1071,8 @@ class VolumeDialog(tk.Toplevel):
         self.gain_label = ttk.Label(frame, width=8)
         self.gain_label.grid(row=0, column=2, padx=6)
 
-        ttk.Button(frame, text="Reset", command=self.reset).grid(row=1, column=0, sticky="w", pady=(10, 0))
-        ttk.Button(frame, text="Close", command=self.destroy).grid(row=1, column=2, sticky="e", pady=(10, 0))
+        ttk.Button(frame, text=_("Reset"), command=self.reset).grid(row=1, column=0, sticky="w", pady=(10, 0))
+        ttk.Button(frame, text=_("Close"), command=self.destroy).grid(row=1, column=2, sticky="e", pady=(10, 0))
         self.bind("<Escape>", lambda event: self.destroy())
         self.apply()
         self.geometry(f"+{app.root.winfo_rootx() + 80}+{app.root.winfo_rooty() + 80}")
@@ -1052,31 +1083,41 @@ class VolumeDialog(tk.Toplevel):
 
     def apply(self):
         decibels = round(self.gain_var.get())
-        self.gain_label.config(text=f"{decibels:+d} dB")
+        self.gain_label.config(text=_("{0:+d} dB").format(decibels))
         self.app.set_user_gain(self.user, decibels)
 
 
 class PokeWindow(tk.Toplevel):
-    def __init__(self, app, user, text):
+    def __init__(self, app):
         super().__init__(app.root)
-        self.title("Poke")
+        self.title(_("Poke"))
         self.attributes("-topmost", True)
         self.resizable(False, False)
 
         frame = ttk.Frame(self, padding=14)
         frame.pack(fill="both", expand=True)
-        sender = user.name if user else "Someone"
-        ttk.Label(frame, text=f"{sender} poked you", font=("TkDefaultFont", 11, "bold")).pack(anchor="w")
-        ttk.Label(frame, text=text, wraplength=320).pack(anchor="w", pady=(6, 10))
+        self.sender_label = ttk.Label(frame, font=("TkDefaultFont", 11, "bold"))
+        self.sender_label.pack(anchor="w")
+        self.text_label = ttk.Label(frame, wraplength=320)
+        self.text_label.pack(anchor="w", pady=(6, 10))
         ttk.Button(frame, text="OK", command=self.destroy).pack(anchor="e")
         self.bind("<Escape>", lambda event: self.destroy())
         self.bind("<Return>", lambda event: self.destroy())
         self.geometry(f"+{app.root.winfo_rootx() + 120}+{app.root.winfo_rooty() + 120}")
 
+        self.close_job = None
         app.root.bell()
         self.lift()
         self.focus_force()
-        self.after(10000, self.close)
+
+    def show(self, user, text):
+        sender = user.name if user else "Someone"
+        self.sender_label.config(text=_("{0} poked you").format(sender))
+        self.text_label.config(text=text)
+        if self.close_job is not None:
+            self.after_cancel(self.close_job)
+        self.close_job = self.after(10000, self.close)
+        self.lift()
 
     def close(self):
         if self.winfo_exists():
@@ -1087,7 +1128,7 @@ class ServerInfoDialog(tk.Toplevel):
     def __init__(self, app, client):
         super().__init__(app.root)
         self.app = app
-        self.title("Server Information")
+        self.title(_("Server Information"))
         self.transient(app.root)
         self.minsize(640, 420)
 
@@ -1096,11 +1137,10 @@ class ServerInfoDialog(tk.Toplevel):
         heading_font = ("TkDefaultFont", 11, "bold")
         ttk.Label(frame, text=client.server_name, font=heading_font).pack(anchor="w")
         if client.hops is not None:
-            plural = "s" if client.hops != 1 else ""
-            path = f"{client.hops} hop{plural} away"
+            path = ngettext("{0} hop away", "{0} hops away", client.hops).format(client.hops)
         else:
             path = "path unknown"
-        ttk.Label(frame, text=f"Address {client.server_hash.hex()}, {path}, {len(client.users)} users").pack(anchor="w")
+        ttk.Label(frame, text=_("Address {0}, {1}, {2} users").format(client.server_hash.hex(), path, len(client.users))).pack(anchor="w")
         if client.motd:
             ttk.Label(frame, text=client.motd, foreground=app.palette["muted"]).pack(anchor="w", pady=(2, 0))
 
@@ -1120,8 +1160,9 @@ class ServerInfoDialog(tk.Toplevel):
             anchor = "center" if column in ("users", "dialin") else "w"
             table.column(column, width=width, anchor=anchor, stretch=(column == "description"))
         self.dialin_numbers = {}
+        users = list(client.users.values())
         for channel in sorted(client.channels.values(), key=lambda entry: entry.id):
-            user_count = sum(1 for user in client.users.values() if user.room == channel.id)
+            user_count = sum(1 for user in users if user.room == channel.id)
             dialin = channel.dialin_number or ""
             values = (
                 channel.name,
@@ -1139,10 +1180,10 @@ class ServerInfoDialog(tk.Toplevel):
         table.pack(side="left", fill="both", expand=True)
         ttk.Scrollbar(table_frame, command=table.yview).pack(side="right", fill="y")
 
-        packets, wire_bytes, _ = client.tx_totals()
+        packets, wire_bytes, unused = client.tx_totals()
         ttk.Label(
             frame,
-            text=f"Sent {packets} packets, {wire_bytes:,} bytes. Received {client.rx_packets} packets, {client.rx_bytes:,} bytes.",
+            text=_("Sent {0} packets, {1:,} bytes. Received {2} packets, {3:,} bytes.").format(packets, wire_bytes, client.rx_packets, client.rx_bytes),
         ).pack(anchor="w")
         playout = client.playout
         if playout:
@@ -1154,16 +1195,16 @@ class ServerInfoDialog(tk.Toplevel):
         else:
             audio_text = "Audio: not running."
         ttk.Label(frame, text=audio_text, wraplength=600).pack(anchor="w", pady=(2, 0))
-        ttk.Label(frame, text=f"Your identity: {app.identity.hash.hex()}", font=("TkFixedFont", 9)).pack(
+        ttk.Label(frame, text=_("Your identity: {0}").format(app.identity.hash.hex()), font=("TkFixedFont", 9)).pack(
             anchor="w", pady=(6, 0)
         )
 
         buttons = ttk.Frame(frame)
         buttons.pack(fill="x", pady=(10, 0))
-        ttk.Button(buttons, text="Copy address", command=lambda: app.copy_to_clipboard(client.server_hash.hex())).pack(
+        ttk.Button(buttons, text=_("Copy address"), command=lambda: app.copy_to_clipboard(client.server_hash.hex())).pack(
             side="left"
         )
-        ttk.Button(buttons, text="Close", command=self.destroy).pack(side="right")
+        ttk.Button(buttons, text=_("Close"), command=self.destroy).pack(side="right")
         self.bind("<Escape>", lambda event: self.destroy())
         self.geometry(f"+{app.root.winfo_rootx() + 40}+{app.root.winfo_rooty() + 40}")
 
@@ -1172,15 +1213,205 @@ class ServerInfoDialog(tk.Toplevel):
         if not number:
             return
         menu = tk.Menu(self, tearoff=0)
-        menu.add_command(label=f"Dial-in number: {number}", state="disabled")
-        menu.add_command(label="Copy dial-in number", command=lambda: self.app.copy_to_clipboard(number))
+        menu.add_command(label=_("Dial-in number: {0}").format(number), state="disabled")
+        menu.add_command(label=_("Copy dial-in number"), command=lambda: self.app.copy_to_clipboard(number))
         menu.tk_popup(event.x_root, event.y_root)
+
+
+class ServerSettingsDialog(tk.Toplevel):
+    def __init__(self, app, client):
+        super().__init__(app.root)
+        self.app = app
+        self.client = client
+        self.palette = app.palette
+        self.waiting_for = None
+        self.shown_motd = client.motd
+        self.title(_("Server Settings"))
+        self.transient(app.root)
+        self.configure(bg=self.palette["bg"])
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.bind("<Escape>", lambda event: self.destroy())
+        frame = ttk.Frame(self, padding=10)
+        frame.pack(fill="both", expand=True)
+        ttk.Label(frame, text=client.server_name, font=("TkDefaultFont", 11, "bold")).pack(anchor="w")
+        motd_row = ttk.Frame(frame)
+        motd_row.pack(fill="x", pady=(8, 0))
+        ttk.Label(motd_row, text=_("Message of the day")).pack(side="left")
+        self.motd_var = tk.StringVar(value=client.motd)
+        ttk.Entry(motd_row, textvariable=self.motd_var, width=56).pack(side="left", fill="x", expand=True, padx=6)
+        ttk.Button(motd_row, text=_("Set"), command=self.set_motd).pack(side="left")
+        ttk.Label(frame, text=_("Rooms")).pack(anchor="w", pady=(10, 2))
+        table_frame = ttk.Frame(frame)
+        table_frame.pack(fill="both", expand=True)
+        self.table = ttk.Treeview(table_frame, columns=("profile", "access"), show="tree headings", height=10, selectmode="browse")
+        self.table.heading("#0", text=_("Room"))
+        self.table.column("#0", width=200, stretch=True)
+        self.table.heading("profile", text=_("Audio"))
+        self.table.column("profile", width=260, stretch=False)
+        self.table.heading("access", text=_("Access"))
+        self.table.column("access", width=220, stretch=False)
+        self.table.pack(side="left", fill="both", expand=True)
+        ttk.Scrollbar(table_frame, command=self.table.yview).pack(side="right", fill="y")
+        self.table.bind("<Double-1>", lambda event: self.edit())
+        buttons = ttk.Frame(frame)
+        buttons.pack(fill="x", pady=(8, 0))
+        ttk.Button(buttons, text=_("Add..."), command=self.add).pack(side="left")
+        ttk.Button(buttons, text=_("Edit..."), command=self.edit).pack(side="left", padx=(4, 0))
+        ttk.Button(buttons, text=_("Remove"), command=self.remove).pack(side="left", padx=(4, 0))
+        ttk.Button(buttons, text=_("Close"), command=self.destroy).pack(side="right")
+        self.refresh()
+        self.update_idletasks()
+        self.geometry(f"+{app.root.winfo_rootx() + 40}+{app.root.winfo_rooty() + 40}")
+
+    def refresh(self):
+        selected = self.selected_room()
+        if self.client.motd != self.shown_motd:
+            self.shown_motd = self.client.motd
+            self.motd_var.set(self.client.motd)
+        self.table.delete(*self.table.get_children())
+        for channel in sorted(self.client.channels.values(), key=lambda item: item.id):
+            audio = describe(channel.profile)
+            if channel.ptt:
+                audio += f", push to talk {channel.ptt_jitter_ms} ms"
+            self.table.insert("", "end", iid=str(channel.id), text=f" {channel.name}", values=(audio, channel.requirements()))
+            if channel.id == selected:
+                self.table.focus(str(channel.id))
+                self.table.selection_set(str(channel.id))
+
+    def selected_room(self):
+        item = self.table.focus()
+        return int(item) if item else None
+
+    def set_motd(self):
+        self.client.configure_server(CONFIG_MOTD, self.motd_var.get().strip())
+
+    def add(self):
+        spec = RoomDialog(self, None, {}).show()
+        if spec:
+            self.client.configure_server(CONFIG_ROOM_ADD, spec)
+
+    def edit(self, room_id=None):
+        room_id = room_id if room_id is not None else self.selected_room()
+        if room_id is None:
+            return
+        self.waiting_for = room_id
+        self.client.configure_server(CONFIG_ROOM_GET, room_id)
+
+    def room_spec(self, room_id, spec):
+        if room_id != self.waiting_for:
+            return
+        self.waiting_for = None
+        channel = self.client.channels.get(room_id)
+        changes = RoomDialog(self, channel, spec).show()
+        if changes:
+            self.client.configure_server(CONFIG_ROOM_EDIT, [room_id, changes])
+
+    def remove(self):
+        room_id = self.selected_room()
+        channel = self.client.channels.get(room_id) if room_id is not None else None
+        if channel is None:
+            return
+        if messagebox.askyesno(_("Remove room"), _("Remove the room “{0}”? Its members move to the default room.").format(channel.name), parent=self):
+            self.client.configure_server(CONFIG_ROOM_REMOVE, room_id)
+
+
+class RoomDialog(Dialog):
+    def __init__(self, parent, channel, spec):
+        super().__init__(parent, (_("Edit Room: {0}").format(channel.name) if channel else _("Add Room")))
+        self.palette = parent.palette
+        self.configure(bg=self.palette["bg"])
+        form = ttk.Frame(self, padding=10)
+        form.pack(fill="both", expand=True)
+        self.name_var = tk.StringVar(value=str(spec.get("name") or (channel.name if channel else "")))
+        self.profile_var = tk.StringVar(value=str(spec.get("profile") or (channel.profile if channel else "opus-med")))
+        self.description_var = tk.StringVar(value=str(spec.get("description") or ""))
+        self.password_var = tk.StringVar(value=str(spec.get("password") or ""))
+        identified = bool(channel.access & ACCESS_IDENTITY) if channel else True
+        self.identity_var = tk.BooleanVar(value=bool(spec.get("require_identity", identified)))
+        self.max_var = tk.StringVar(value=str(spec.get("max_members") or ""))
+        self.ptt_var = tk.BooleanVar(value=bool(spec.get("ptt", "ptt_jitter_ms" in spec)))
+        self.jitter_var = tk.StringVar(value=str(spec.get("ptt_jitter_ms") or PTT_JITTER_MS))
+        self.broadcast_var = tk.BooleanVar(value=spec.get("music") is not None)
+        rows = (
+            ("Name", ttk.Entry(form, textvariable=self.name_var, width=40)),
+            ("Audio profile", ttk.Combobox(form, textvariable=self.profile_var, values=list(PROFILES), state="readonly", width=16)),
+            ("Description", ttk.Entry(form, textvariable=self.description_var, width=40)),
+            ("Password (blank for none)", ttk.Entry(form, textvariable=self.password_var, width=40, show="*")),
+            ("", ttk.Checkbutton(form, text=_("Identified users only"), variable=self.identity_var)),
+            ("Max members (blank for server default)", ttk.Entry(form, textvariable=self.max_var, width=8)),
+        )
+        for row, (text, widget) in enumerate(rows):
+            ttk.Label(form, text=text).grid(row=row, column=0, sticky="w", pady=3, padx=(0, 8))
+            widget.grid(row=row, column=1, sticky="w", pady=3)
+        self.profile_label = ttk.Label(form, text="", foreground=self.palette["muted"])
+        self.profile_label.grid(row=1, column=2, sticky="w", padx=(8, 0))
+        rows[1][1].bind("<<ComboboxSelected>>", lambda event: self.show_profile())
+        self.show_profile()
+        ptt_row = ttk.Frame(form)
+        ptt_row.grid(row=6, column=0, columnspan=3, sticky="w", pady=3)
+        ttk.Checkbutton(ptt_row, text=_("Push to talk room, buffer"), variable=self.ptt_var).pack(side="left")
+        ttk.Entry(ptt_row, textvariable=self.jitter_var, width=7).pack(side="left", padx=4)
+        ttk.Label(ptt_row, text="ms").pack(side="left")
+        ttk.Label(form, text=_("Allow list, one identity hash per line (blank for everyone)")).grid(row=7, column=0, columnspan=3, sticky="w", pady=(8, 2))
+        self.allow_text = self.hash_box(form, spec.get("allow"))
+        self.allow_text.grid(row=8, column=0, columnspan=3, sticky="ew")
+        ttk.Checkbutton(form, text=_("Broadcast room: only these speakers may talk, one hash per line"), variable=self.broadcast_var).grid(row=9, column=0, columnspan=3, sticky="w", pady=(8, 2))
+        self.music_text = self.hash_box(form, spec.get("music"))
+        self.music_text.grid(row=10, column=0, columnspan=3, sticky="ew")
+        form.columnconfigure(1, weight=1)
+        buttons = ttk.Frame(self, padding=(10, 0, 10, 10))
+        buttons.pack(fill="x")
+        ttk.Button(buttons, text="OK", command=self.ok).pack(side="right")
+        ttk.Button(buttons, text=_("Cancel"), command=self.cancel).pack(side="right", padx=6)
+
+    def hash_box(self, parent, hashes):
+        if isinstance(hashes, str):
+            hashes = hashes.replace(",", " ").split()
+        box = tk.Text(parent, height=3, width=60, bg=self.palette["field"], fg=self.palette["fg"], insertbackground=self.palette["fg"], relief="flat", highlightthickness=1, highlightbackground=self.palette["border"])
+        box.insert("1.0", "\n".join(str(item) for item in (hashes or [])))
+        return box
+
+    def show_profile(self):
+        self.profile_label.config(text=describe(self.profile_var.get()) if self.profile_var.get() in PROFILES else "")
+
+    def hashes(self, box):
+        found = []
+        for line in box.get("1.0", "end").replace(",", " ").split():
+            found.append(parse_hash(line).hex())
+        return found
+
+    def ok(self):
+        name = self.name_var.get().strip()
+        if not name:
+            messagebox.showerror(_("Room"), _("Give the room a name."), parent=self)
+            return
+        try:
+            max_members = int(self.max_var.get()) if self.max_var.get().strip() else None
+            jitter = int(self.jitter_var.get()) if self.ptt_var.get() else None
+            allow = self.hashes(self.allow_text)
+            music = self.hashes(self.music_text) if self.broadcast_var.get() else None
+        except ValueError as error:
+            messagebox.showerror(_("Room"), _("Check the numbers and identity hashes: {0}").format(error), parent=self)
+            return
+        self.result = {
+            "name": name,
+            "profile": self.profile_var.get(),
+            "description": self.description_var.get().strip(),
+            "password": self.password_var.get() or None,
+            "require_identity": self.identity_var.get(),
+            "max_members": max_members,
+            "ptt": self.ptt_var.get(),
+            "ptt_jitter_ms": jitter,
+            "allow": allow or None,
+            "music": music,
+        }
+        self.destroy()
 
 
 class AboutDialog(tk.Toplevel):
     def __init__(self, app):
         super().__init__(app.root)
-        self.title("About")
+        self.title(_("About"))
         self.transient(app.root)
         self.resizable(False, False)
         palette = app.palette
@@ -1194,20 +1425,20 @@ class AboutDialog(tk.Toplevel):
         except tk.TclError:
             self.image = None
         tk.Label(mark, text="partyline", font=("TkFixedFont", 30), fg="white", bg="black").pack(pady=(8, 0))
-        tk.Label(mark, text=f"version {APP_VERSION}, protocol {PROTOCOL_VERSION}", fg="#9a9a9a", bg="black").pack()
+        tk.Label(mark, text=_("version {0}, protocol {1}").format(APP_VERSION, PROTOCOL_VERSION), fg="#9a9a9a", bg="black").pack()
 
         frame = ttk.Frame(self, padding=16)
         frame.pack(fill="both", expand=True)
         ttk.Label(
-            frame, text="A group voice application for Reticulum, built on LXST"
+            frame, text=_("A group voice application for Reticulum, built on LXST")
         ).pack()
-        ttk.Label(frame, text=f"Your identity: {app.identity.hash.hex()}", font=("TkFixedFont", 9)).pack(pady=(10, 0))
+        ttk.Label(frame, text=_("Your identity: {0}").format(app.identity.hash.hex()), font=("TkFixedFont", 9)).pack(pady=(10, 0))
         
         ttk.Label(
             frame, text="", foreground=palette["muted"]
         ).pack(pady=(10, 0))
 
-        ttk.Button(frame, text="Close", command=self.destroy).pack(pady=(12, 0))
+        ttk.Button(frame, text=_("Close"), command=self.destroy).pack(pady=(12, 0))
         self.bind("<Escape>", lambda event: self.destroy())
         self.geometry(f"+{app.root.winfo_rootx() + 60}+{app.root.winfo_rooty() + 40}")
 
@@ -1241,6 +1472,17 @@ class App:
         self.reconnect_attempt = 0
         self.reconnect_at = 0.0
         self.last_join = (None, None)  # (room name, password)
+        self.rns_status = None
+        self.rns_shown = None
+        self.interfaces_dialog = None
+        self.settings_window = None
+        
+        self.audio_setup_window = None
+        self.poke_window = None
+        self.diagnostics_window = None
+        self.debug_report = None
+        self._debug_next = 0.0
+        self.refresh_error = None
 
         self.palette = PALETTES.get(settings["theme"], PALETTES["light"])
         self.menus = []
@@ -1259,17 +1501,21 @@ class App:
         for kind in USER_ICON_KINDS:
             self.icons[kind] = load_icon(kind)
             self.icons[kind + "+op"] = load_icon(kind, operator=True)
+        for kind in RNS_ICON_COLORS:
+            self.icons[kind] = load_icon(kind)
 
         self.build_menu()
         self.build_toolbar()
+        self.build_transmission_status()
         self.build_body()
         self.build_statusbar()
         self.apply_theme()
         self.apply_settings()
-        self.log("Welcome to Partyline. Server > Connect... to pick a server.", "sys")
+        self.log(_("Welcome to Partyline. Server > Connect... to pick a server."), "sys")
 
         root.after(REFRESH_MS, self.refresh)
         root.after(HOTKEY_MS, self.poll_hotkeys)
+        threading.Thread(target=self.watch_reticulum, daemon=True).start()
 
     def display_name(self):
         return self.settings["name"] or default_name(self.identity)
@@ -1289,31 +1535,39 @@ class App:
         self.root.config(menu=menubar)
 
         server_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Server", menu=server_menu)
-        server_menu.add_command(label="Connect...", accelerator="Ctrl+O", command=self.connect_dialog)
-        server_menu.add_command(label="Disconnect", accelerator="Ctrl+D", command=self.disconnect)
-        server_menu.add_command(label="Server Information...", command=self.server_info)
+        menubar.add_cascade(label=_("Server"), menu=server_menu)
+        server_menu.add_command(label=_("Connect..."), accelerator="Ctrl+O", command=self.connect_dialog)
+        server_menu.add_command(label=_("Disconnect"), accelerator="Ctrl+D", command=self.disconnect)
+        server_menu.add_command(label=_("Server Information..."), command=self.server_info)
+        server_menu.add_command(label=_("Server Settings..."), command=self.server_settings)
         server_menu.add_separator()
-        server_menu.add_command(label="Quit", accelerator="Ctrl+Q", command=self.quit)
+        server_menu.add_command(label=_("Quit"), accelerator="Ctrl+Q", command=self.quit)
 
         self.mute_var = tk.BooleanVar(value=False)
         self.deaf_var = tk.BooleanVar(value=False)
         self_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Self", menu=self_menu)
-        self_menu.add_checkbutton(label="Mute Self", variable=self.mute_var, command=self.toggle_mute)
-        self_menu.add_checkbutton(label="Deafen Self", variable=self.deaf_var, command=self.toggle_deaf)
+        menubar.add_cascade(label=_("Self"), menu=self_menu)
+        self_menu.add_checkbutton(label=_("Mute Self"), variable=self.mute_var, command=self.toggle_mute)
+        self_menu.add_checkbutton(label=_("Deafen Self"), variable=self.deaf_var, command=self.toggle_deaf)
 
         configure_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Configure", menu=configure_menu)
-        configure_menu.add_command(label="Settings...", command=lambda: SettingsDialog(self).show())
+        menubar.add_cascade(label=_("Configure"), menu=configure_menu)
+        configure_menu.add_command(label=_("Settings..."), command=lambda: SettingsDialog(self).show())
+        configure_menu.add_command(label=_("Audio setup..."), command=self.audio_setup)
         self.dark_var = tk.BooleanVar(value=self.settings["theme"] == "dark")
-        configure_menu.add_checkbutton(label="Dark Mode", variable=self.dark_var, command=self.toggle_theme)
+        configure_menu.add_checkbutton(label=_("Dark Mode"), variable=self.dark_var, command=self.toggle_theme)
+
+        reticulum_menu = tk.Menu(menubar, tearoff=0, postcommand=self.fill_reticulum_menu)
+        menubar.add_cascade(label="Reticulum", menu=reticulum_menu, image=self.icons["rns_off"], compound="left")
+        self.reticulum_menu = reticulum_menu
+        self.fill_reticulum_menu()
 
         help_menu = tk.Menu(menubar, tearoff=0)
-        menubar.add_cascade(label="Help", menu=help_menu)
-        help_menu.add_command(label="About", command=lambda: AboutDialog(self))
+        menubar.add_cascade(label=_("Help"), menu=help_menu)
+        help_menu.add_command(label=_("About"), command=lambda: AboutDialog(self))
 
-        self.menus = [menubar, server_menu, self_menu, configure_menu, help_menu]
+        self.menubar = menubar
+        self.menus = [menubar, server_menu, self_menu, configure_menu, reticulum_menu, help_menu]
         self.root.bind("<Control-o>", lambda event: self.connect_dialog())
         self.root.bind("<Control-d>", lambda event: self.disconnect())
         self.root.bind("<Control-q>", lambda event: self.quit())
@@ -1321,9 +1575,9 @@ class App:
     def build_toolbar(self):
         toolbar = ttk.Frame(self.root, padding=(4, 3))
         toolbar.pack(fill="x")
-        self.connect_button = ttk.Button(toolbar, text="Connect", command=self.connect_dialog)
+        self.connect_button = ttk.Button(toolbar, text=_("Connect"), command=self.connect_dialog)
         self.connect_button.pack(side="left")
-        self.disconnect_button = ttk.Button(toolbar, text="Disconnect", command=self.disconnect)
+        self.disconnect_button = ttk.Button(toolbar, text=_("Disconnect"), command=self.disconnect)
         self.disconnect_button.pack(side="left", padx=(2, 0))
 
         ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=6)
@@ -1332,7 +1586,7 @@ class App:
         # the grey icon normally, the white one on the red pressed button
         self.mute_button = ttk.Checkbutton(
             toolbar,
-            text="Mute",
+            text=_("Mute"),
             image=(self.icons["toolbar_mute"], "selected", self.icons["toolbar_mute_on"]),
             compound="left",
             variable=self.mute_var,
@@ -1342,7 +1596,7 @@ class App:
         self.mute_button.pack(side="left")
         self.deafen_button = ttk.Checkbutton(
             toolbar,
-            text="Deafen",
+            text=_("Deafen"),
             image=(self.icons["toolbar_deafen"], "selected", self.icons["toolbar_deafen_on"]),
             compound="left",
             variable=self.deaf_var,
@@ -1352,12 +1606,50 @@ class App:
         self.deafen_button.pack(side="left", padx=(2, 0))
 
         ttk.Separator(toolbar, orient="vertical").pack(side="left", fill="y", padx=6)
-        ttk.Button(toolbar, text="Settings", command=lambda: SettingsDialog(self).show()).pack(side="left")
+        self.settings_button = ttk.Button(toolbar, text=_("Settings"), command=lambda: SettingsDialog(self).show())
+        self.settings_button.pack(side="left")
+        self.diagnostics_button = ttk.Button(toolbar, text=_("Diagnostics..."), command=self.audio_diagnostics)
 
-        self.ptt_button = tk.Button(toolbar, text="Push to talk", width=18, relief="raised", state="disabled")
+        self.ptt_button = tk.Button(toolbar, text=_("Push to talk"), width=18, relief="raised", state="disabled")
         self.ptt_button.pack(side="right")
         self.ptt_button.bind("<ButtonPress-1>", lambda event: self.ptt_press())
         self.ptt_button.bind("<ButtonRelease-1>", lambda event: self.ptt_release())
+
+    def build_transmission_status(self):
+        self.transmission_frame = ttk.Frame(self.root, padding=(8, 4))
+        self.transmission_label = tk.Label(
+            self.transmission_frame, anchor="w", padx=10, pady=6, font=("TkDefaultFont", 11, "bold")
+        )
+        self.transmission_label.pack(side="left", fill="x")
+        self.transmission_detail = ttk.Label(self.transmission_frame, wraplength=420)
+        self.transmission_detail.pack(side="left", padx=12)
+
+    def update_transmission_status(self):
+        client = self.client
+        kind, label, detail = diagnostics.transmission_status(
+            client, pretty_key(self.settings["ptt_key"]) if self.settings["ptt_key"] else "", self.settings["ptt_toggle"]
+        )
+        colors = {"live": ("#236b36", "#ffffff"), "sending": ("#f0b429", "#171717"), "muted": ("#a22d2d", "#ffffff")}
+        bg, fg = colors.get(kind, (self.palette["tx_off"], self.palette["fg"]))
+        self.transmission_label.configure(text=label, bg=bg, fg=fg)
+        self.transmission_detail.configure(text=detail)
+        allowed = bool(
+            client
+            and client.connected
+            and client.my_room is not None
+            and client.packetizer
+            and client.can_speak_here
+            and not client.muted
+            and not client.cfg.text_only
+            and not client.cfg.listen
+            and self.settings["mode"] == "ptt"
+        )
+        self.ptt_button.configure(
+            state="normal" if allowed else "disabled",
+            relief="sunken" if client and client.transmitting else "raised",
+            bg=bg if kind == "live" else self.palette["btn"],
+            fg=fg if kind == "live" else self.palette["fg"],
+        )
 
     def build_body(self):
         pane = ttk.PanedWindow(self.root, orient="horizontal")
@@ -1394,7 +1686,7 @@ class App:
         self.entry = ttk.Entry(entry_row)
         self.entry.pack(side="left", fill="x", expand=True)
         self.entry.bind("<Return>", lambda event: self.send_text())
-        ttk.Button(entry_row, text="Send", command=self.send_text).pack(side="left", padx=(3, 0))
+        ttk.Button(entry_row, text=_("Send"), command=self.send_text).pack(side="left", padx=(3, 0))
 
     def place_sash(self):
         width = self.pane.winfo_width()
@@ -1407,7 +1699,7 @@ class App:
     def build_statusbar(self):
         status_bar = ttk.Frame(self.root, padding=(6, 2))
         status_bar.pack(fill="x", side="bottom")
-        self.status_var = tk.StringVar(value="Not connected")
+        self.status_var = tk.StringVar(value=_("Not connected"))
         ttk.Label(status_bar, textvariable=self.status_var).pack(side="left")
         self.tx_label = tk.Label(status_bar, text=" TX ", width=5, relief="sunken")
         self.tx_label.pack(side="right", padx=(6, 0))
@@ -1589,6 +1881,14 @@ class App:
     def apply_settings(self):
         settings = self.settings
         self.apply_fonts()
+        if settings["debug_stats"]:
+            self.diagnostics_button.pack(side="left", after=self.settings_button, padx=(2, 0))
+            self.transmission_frame.pack(fill="x", before=self.pane)
+        else:
+            self.diagnostics_button.pack_forget()
+            self.transmission_frame.pack_forget()
+            if self.diagnostics_window is not None:
+                self.diagnostics_window.close()
         self.hotkeys.spec = settings["ptt_key"] or None
         if settings["ptt_global"] and settings["ptt_key"]:
             self.hotkeys.start()
@@ -1602,13 +1902,13 @@ class App:
             self.root.bind("<KeyRelease>", self.tk_key_release)
 
         push_to_talk = settings["mode"] == "ptt"
-        button_text = "Push to talk"
+        button_text = _("Push to talk")
         if settings["ptt_key"]:
             button_text += f"  [{pretty_key(settings['ptt_key'])}]"
 
         client = self.client
         if client and not client.can_speak_here:
-            self.ptt_button.config(state="disabled", text="Listen only")
+            self.ptt_button.config(state="disabled", text=_("Listen only"))
         else:
             self.ptt_button.config(state="normal" if push_to_talk else "disabled", text=button_text)
 
@@ -1633,7 +1933,7 @@ class App:
         self.mute_button.state(state)
         self.deafen_button.state(state)
         if chat_only:
-            self.ptt_button.config(state="disabled", text="Chat-only")
+            self.ptt_button.config(state="disabled", text=_("Chat-only"))
         else:
             self.apply_settings()
 
@@ -1670,7 +1970,7 @@ class App:
         try:
             destination_hash = parse_hash(entry["hash"])
         except ValueError as error:
-            self.log(f"bad server address: {error}", "err")
+            self.log(_("bad server address: {0}").format(error), "err")
             return
 
         self.server_entry = entry
@@ -1686,7 +1986,7 @@ class App:
         needs_password = self.discovery.flags_for(entry["hash"]) & ANNOUNCE_PASSWORD
         if needs_password and not server_password and not retry:
             server_password = simpledialog.askstring(
-                "Server password", f"{entry['label']} asks for a password:", show="*", parent=self.root
+                _("Server password"), _("{0} asks for a password:").format(entry['label']), show="*", parent=self.root
             )
             if server_password is None:
                 self.wanted = False
@@ -1706,10 +2006,11 @@ class App:
             self.deaf_var.set(True)
         self.set_chat_only_widgets(self.chat_only)
 
-        verb = "Reconnecting" if retry else "Connecting"
-        if self.chat_only:
-            verb += " chat-only"
-        self.log(f"{verb} to {entry['label']} ({entry['hash'][:12]}...) as {name}", "sys")
+        if retry:
+            template = _("Reconnecting chat-only to {0} ({1}...) as {2}") if self.chat_only else _("Reconnecting to {0} ({1}...) as {2}")
+        else:
+            template = _("Connecting chat-only to {0} ({1}...) as {2}") if self.chat_only else _("Connecting to {0} ({1}...) as {2}")
+        self.log(template.format(entry["label"], entry["hash"][:12], name), "sys")
         self.client.connect(destination_hash, room=room, password=password, server_password=server_password)
         self.tree_dirty = True
 
@@ -1718,7 +2019,7 @@ class App:
         self.cancel_reconnect()
         if self.client:
             self.client.disconnect()
-            self.log("Disconnected.", "sys")
+            self.log(_("Disconnected."), "sys")
         self.set_chat_only_widgets(False)
         self.client = None
         self.server_entry = None
@@ -1737,7 +2038,7 @@ class App:
         delay = self.RECONNECT_DELAYS[min(self.reconnect_attempt, len(self.RECONNECT_DELAYS) - 1)]
         self.reconnect_at = time.time() + delay
         self.log(
-            f"Attempting to reconnect in {delay} s (attempt {self.reconnect_attempt + 1}). Disconnect to stop.", "err"
+            _("Attempting to reconnect in {0} s (attempt {1}). Disconnect to stop.").format(delay, self.reconnect_attempt + 1), "err"
         )
         self.reconnect_job = self.root.after(int(delay * 1000), self.do_reconnect)
 
@@ -1750,6 +2051,11 @@ class App:
         self.connect_to(self.server_entry, retry=True)
 
     def quit(self):
+        if self.audio_setup_window is not None:
+            self.audio_setup_window.close()
+            if self.audio_setup_window is not None:
+                self.root.after(100, self.quit)
+                return
         try:
             self.settings["window"] = self.root.geometry()
             self.settings["sash"] = self.pane.sashpos(0)
@@ -1760,12 +2066,126 @@ class App:
         self.hotkeys.stop()
         self.root.destroy()
 
+    def audio_setup(self):
+        if self.audio_setup_window is not None:
+            self.audio_setup_window.lift()
+            return self.audio_setup_window
+        if self.release_job:
+            self.root.after_cancel(self.release_job)
+            self.release_job = None
+        self.key_down = False
+        if self.client:
+            self.client.set_transmit(False)
+        self.audio_setup_window = AudioSetupDialog(self)
+        self.audio_setup_window.update_idletasks()
+        if self.audio_setup_window.winfo_viewable():
+            self.audio_setup_window.grab_set()
+        return self.audio_setup_window
+
+    def audio_diagnostics(self):
+        if not self.settings["debug_stats"]:
+            return None
+        if self.diagnostics_window is None:
+            self.diagnostics_window = DiagnosticsDialog(self)
+        else:
+            self.diagnostics_window.lift()
+        return self.diagnostics_window
+
+    def copy_diagnostics(self):
+        self.copy_to_clipboard(diagnostics.report_text(self.debug_report or diagnostics.snapshot()))
+
     def server_info(self):
         client = self.client
         if not client or not client.connected:
-            messagebox.showinfo("Server Information", "Not connected.", parent=self.root)
+            messagebox.showinfo(_("Server Information"), _("Not connected."), parent=self.root)
             return
         ServerInfoDialog(self, client)
+
+    def server_settings(self):
+        client = self.client
+        if not client or not client.connected:
+            messagebox.showinfo(_("Server Settings"), _("Not connected."), parent=self.root)
+            return None
+        if not client.is_operator:
+            messagebox.showinfo(_("Server Settings"), _("Only operators can change server settings."), parent=self.root)
+            return None
+        window = self.settings_window
+        if window is not None and window.winfo_exists():
+            window.lift()
+            window.focus_set()
+            return window
+        self.settings_window = ServerSettingsDialog(self, client)
+        return self.settings_window
+
+    def refresh_settings_window(self):
+        window = self.settings_window
+        if window is not None and window.winfo_exists() and window.client is self.client:
+            window.refresh()
+
+    def edit_room(self, room_id):
+        window = self.server_settings()
+        if window is not None:
+            window.edit(room_id)
+
+    def show_poke(self, user, text):
+        window = self.poke_window
+        if window is None or not window.winfo_exists():
+            window = self.poke_window = PokeWindow(self)
+        window.show(user, text)
+
+    def pair_phone(self):
+        text = simpledialog.askstring(_("Pair a phone"), _("Identity hash of the phone (32 hex characters):"), parent=self.root)
+        if text and self.client:
+            self.client.dialin(DIALIN_ADD, text.strip())
+
+
+### RETICULUM ###
+    def watch_reticulum(self):
+        monitor = reticulum.Monitor()
+        while True:
+            try:
+                self.rns_status = monitor.poll()
+            except Exception as error:
+                RNS.log(f"Reticulum status check failed: {error}", RNS.LOG_DEBUG)
+            time.sleep(RNS_POLL_MS / 1000)
+
+    def rns_icon(self, level):
+        return self.icons[f"rns_{level}"]
+
+    def show_reticulum_status(self, status):
+        self.menubar.entryconfigure("Reticulum", image=self.rns_icon(status.level))
+        if self.rns_shown is None or self.rns_shown.level != status.level:
+            self.log(_("Reticulum: {0}.").format(status.text), "err" if status.level == reticulum.OFFLINE else "sys")
+        self.rns_shown = status
+
+    def fill_reticulum_menu(self):
+        menu = self.reticulum_menu
+        menu.delete(0, "end")
+        status = self.rns_status
+        if status is None:
+            menu.add_command(label=_("Checking..."), image=self.icons["rns_off"], compound="left", state="disabled")
+        else:
+            menu.add_command(label=status.text, image=self.rns_icon(status.level), compound="left", state="disabled")
+            for entry in status.interfaces[:RNS_MENU_INTERFACES]:
+                menu.add_command(
+                    label=entry.describe(),
+                    image=self.icons["rns_online" if entry.up else "rns_offline"],
+                    compound="left",
+                    command=self.reticulum_interfaces,
+                )
+        menu.add_separator()
+        menu.add_command(label=_("Interfaces..."), command=self.reticulum_interfaces)
+
+    def reticulum_interfaces(self):
+        dialog = self.interfaces_dialog
+        if dialog is not None and dialog.winfo_exists():
+            dialog.lift()
+            dialog.focus_set()
+            return
+        try:
+            self.interfaces_dialog = reticulum.InterfacesDialog(self)
+        except Exception as error:
+            messagebox.showerror("Reticulum", _("{0} could not be read: {1}").format(reticulum.config_path(), error), parent=self.root)
 
 
     def toggle_mute(self):
@@ -1774,7 +2194,7 @@ class App:
         if self.client:
             self.client.set_deaf(self.deaf_var.get())
             self.client.set_muted(self.mute_var.get())
-        self.log("Muted." if self.mute_var.get() else "Unmuted.", "sys")
+        self.log((_("Muted.") if self.mute_var.get() else _("Unmuted.")), "sys")
         self.sounds.play("mute_on" if self.mute_var.get() else "mute_off")
 
     def toggle_deaf(self):
@@ -1782,12 +2202,18 @@ class App:
             self.mute_var.set(True)
         if self.client:
             self.client.set_deaf(self.deaf_var.get())
-        self.log("Deafened (and muted)." if self.deaf_var.get() else "Undeafened.", "sys")
+        self.log((_("Deafened (and muted).") if self.deaf_var.get() else _("Undeafened.")), "sys")
         self.sounds.play("deafen_on" if self.deaf_var.get() else "deafen_off")
 
 
 
     def ptt_press(self):
+        if self.audio_setup_window is not None:
+            self.audio_setup_window.hotkey("down")
+            return
+        client = self.client
+        if not client or not client.connected or not client.packetizer or client.muted or not client.can_speak_here:
+            return
         if self.release_job:
             self.root.after_cancel(self.release_job)
             self.release_job = None
@@ -1801,6 +2227,9 @@ class App:
             self.set_transmit(True)
 
     def ptt_release(self):
+        if self.audio_setup_window is not None:
+            self.audio_setup_window.hotkey("up")
+            return
         if self.release_job:
             self.root.after_cancel(self.release_job)
         self.release_job = self.root.after(RELEASE_MS, self._released)
@@ -1881,8 +2310,7 @@ class App:
     def describe_user(self, user):
         client = self.client
         if client.hops is not None:
-            plural = "s" if client.hops != 1 else ""
-            mine = f"you: {client.hops} hop{plural}"
+            mine = ngettext("you: {0} hop", "you: {0} hops", client.hops).format(client.hops)
         else:
             mine = "your path unknown"
         flags = []
@@ -1919,19 +2347,29 @@ class App:
             label=f"{channel.name}: {describe(channel.profile)}, {channel.requirements()}", state="disabled"
         )
         menu.add_separator()
-        menu.add_command(label="Join Room", command=lambda: self.join_room(channel.id))
+        menu.add_command(label=_("Join Room"), command=lambda: self.join_room(channel.id))
+        client = self.client
         if channel.dialin_number:
             menu.add_separator()
-            menu.add_command(label=f"Dial-in number: {channel.dialin_number}", state="disabled")
-            menu.add_command(label="Copy dial-in number", command=lambda: self.copy_to_clipboard(channel.dialin_number))
+            menu.add_command(label=_("Dial-in number: {0}").format(channel.dialin_number), state="disabled")
+            menu.add_command(label=_("Copy dial-in number"), command=lambda: self.copy_to_clipboard(channel.dialin_number))
+            for hex_hash in sorted(getattr(client, "pending_calls", {})):
+                menu.add_command(label=_("Answer phone call {0}...").format(hex_hash[:8]), command=lambda h=hex_hash: client.dialin(DIALIN_ANSWER, h))
+                menu.add_command(label=_("Reject phone call {0}...").format(hex_hash[:8]), command=lambda h=hex_hash: client.dialin(DIALIN_REJECT, h))
+            if client and client.is_operator:
+                menu.add_command(label=_("Pair a phone..."), command=self.pair_phone)
+            menu.add_command(label=_("List paired phones"), command=lambda: client.dialin(DIALIN_LIST))
+        if client and client.is_operator:
+            menu.add_separator()
+            menu.add_command(label=_("Edit Room..."), command=lambda: self.edit_room(channel.id))
 
     def fill_user_menu(self, menu, user):
         client = self.client
         if user is None:
             return
         if user.sid == client.my_sid:
-            menu.add_checkbutton(label="Mute Self", variable=self.mute_var, command=self.toggle_mute)
-            menu.add_checkbutton(label="Deafen Self", variable=self.deaf_var, command=self.toggle_deaf)
+            menu.add_checkbutton(label=_("Mute Self"), variable=self.mute_var, command=self.toggle_mute)
+            menu.add_checkbutton(label=_("Deafen Self"), variable=self.deaf_var, command=self.toggle_deaf)
             return
 
         header = f"{user.name}: {user.path_info()}"
@@ -1943,34 +2381,34 @@ class App:
         gain = client.gains.get(user.sid, 0)
         muted_here = user.sid in client.local_muted
         menu.add_command(
-            label="Unmute Locally" if muted_here else "Mute Locally",
+            label=(_("Unmute Locally") if muted_here else _("Mute Locally")),
             command=lambda: self.set_local_mute(user, not muted_here),
         )
         volume_label = "Local Volume..."
         if gain:
             volume_label += f"  ({gain:+.0f} dB)"
         menu.add_command(label=volume_label, command=lambda: VolumeDialog(self, user))
-        menu.add_command(label="Poke...", command=lambda: self.poke(user))
+        menu.add_command(label=_("Poke..."), command=lambda: self.poke(user))
         menu.add_separator()
         menu.add_command(
-            label="Copy identity hash",
+            label=_("Copy identity hash"),
             state="normal" if user.identity else "disabled",
             command=lambda: self.copy_to_clipboard(user.identity),
         )
 
         if client.is_operator:
             menu.add_separator()
-            menu.add_command(label="Operator actions", state="disabled")
-            menu.add_command(label="Kick", command=lambda: self.admin_action(user, ADMIN_KICK))
-            menu.add_command(label="Ban", command=lambda: self.admin_action(user, ADMIN_BAN))
+            menu.add_command(label=_("Operator actions"), state="disabled")
+            menu.add_command(label=_("Kick"), command=lambda: self.admin_action(user, ADMIN_KICK))
+            menu.add_command(label=_("Ban"), command=lambda: self.admin_action(user, ADMIN_BAN))
             if user.server_muted:
-                menu.add_command(label="Server Unmute", command=lambda: self.admin_action(user, ADMIN_UNMUTE))
+                menu.add_command(label=_("Server Unmute"), command=lambda: self.admin_action(user, ADMIN_UNMUTE))
             else:
-                menu.add_command(label="Server Mute", command=lambda: self.admin_action(user, ADMIN_MUTE))
+                menu.add_command(label=_("Server Mute"), command=lambda: self.admin_action(user, ADMIN_MUTE))
             if user.operator:
-                menu.add_command(label="Remove Operator", command=lambda: self.admin_action(user, ADMIN_DEOP))
+                menu.add_command(label=_("Remove Operator"), command=lambda: self.admin_action(user, ADMIN_DEOP))
             else:
-                menu.add_command(label="Make Operator", command=lambda: self.admin_action(user, ADMIN_OP))
+                menu.add_command(label=_("Make Operator"), command=lambda: self.admin_action(user, ADMIN_OP))
 
             move_menu = tk.Menu(menu, tearoff=0)
             for channel in sorted(client.channels.values(), key=lambda entry: entry.id):
@@ -1979,25 +2417,26 @@ class App:
                         label=channel.name,
                         command=lambda room_id=channel.id: self.admin_action(user, ADMIN_MOVE, room_id),
                     )
-            menu.add_cascade(label="Move to", menu=move_menu)
+            menu.add_cascade(label=_("Move to"), menu=move_menu)
 
-    def admin_action(self, user, action, argument=None):
-        if action in (ADMIN_KICK, ADMIN_BAN):
-            verb = "Kick" if action == ADMIN_KICK else "Ban"
-            if not messagebox.askyesno(verb, f"{verb} {user.name}?", parent=self.root):
+    def admin_action(self, user, action, argument=None, confirm=True):
+        if confirm and action in (ADMIN_KICK, ADMIN_BAN):
+            title = _("Kick") if action == ADMIN_KICK else _("Ban")
+            question = _("Kick {0}?") if action == ADMIN_KICK else _("Ban {0}?")
+            if not messagebox.askyesno(title, question.format(user.name), parent=self.root):
                 return
         self.client.admin(action, user.sid, argument)
-        self.log(f"{action} requested on {user.name}.", "sys")
+        self.log(_("{0} requested on {1}.").format(action, user.name), "sys")
 
     def poke(self, user):
-        text = simpledialog.askstring("Poke", f"Message to {user.name}:", parent=self.root, initialvalue="Hey!")
+        text = simpledialog.askstring(_("Poke"), _("Message to {0}:").format(user.name), parent=self.root, initialvalue=_("Hey!"))
         if text is not None and self.client:
             self.client.poke(user.sid, text)
 
     def set_local_mute(self, user, muted):
         if self.client:
             self.client.set_local_mute(user.sid, muted)
-        self.log(f"{user.name} {'muted' if muted else 'unmuted'} locally.", "sys")
+        self.log((_("{0} muted locally.") if muted else _("{0} unmuted locally.")).format(user.name), "sys")
         self.icon_state.pop(f"u{user.sid}", None)
         if user.identity:
             muted_identities = set(self.settings.get("user_muted") or [])
@@ -2029,33 +2468,57 @@ class App:
             "• It works best when one person talks at a time.\n\n"
             "Join this room?"
         )
-        dialog = tk.Toplevel(self.root)
-        dialog.title("Push-to-talk room")
-        dialog.transient(self.root)
-        dialog.resizable(False, False)
-        ttk.Label(dialog, text=message, justify="left", wraplength=380).grid(
-            row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(16, 12)
+        return self.confirm_notice(self.root, _("Push-to-talk room"), message, _("Join"), "hide_ptt_notice")
+
+    def confirm_continuous(self, parent, mode):
+        if mode != "open" or self.settings["mode"] == "open" or self.settings["hide_continuous_notice"]:
+            return True
+        return self.confirm_notice(
+            parent,
+            _("Continuous transmit"),
+            _(CONTINUOUS_WARNING),
+            _("Use Continuous"),
+            "hide_continuous_notice",
+            warning=True,
         )
+
+    def warning_icon(self, parent):
+        try:
+            return ttk.Label(parent, image="::tk::icons::warning")
+        except tk.TclError:
+            return tk.Label(parent, bitmap="warning", bg=self.palette["bg"], fg=self.palette["fg"])
+
+    def confirm_notice(self, parent, title, message, accept_text, hide_key, warning=False):
+        previous_grab = parent.grab_current()
+        dialog = tk.Toplevel(parent)
+        dialog.title(title)
+        dialog.transient(parent)
+        dialog.resizable(False, False)
+        body = ttk.Frame(dialog)
+        body.grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(16, 12))
+        if warning:
+            self.warning_icon(body).pack(side="left", anchor="n", padx=(0, 12))
+        ttk.Label(body, text=message, justify="left", wraplength=380).pack(side="left")
         hide_var = tk.BooleanVar(value=False)
-        ttk.Checkbutton(dialog, text="Don't show this again", variable=hide_var).grid(
+        ttk.Checkbutton(dialog, text=_("Don't show this again"), variable=hide_var).grid(
             row=1, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 8)
         )
-        choice = {"join": False}
+        choice = {"accepted": False}
 
-        def join():
-            choice["join"] = True
+        def accept():
+            choice["accepted"] = True
             if hide_var.get():
-                self.settings["hide_ptt_notice"] = True
+                self.settings[hide_key] = True
                 self.settings.save()
             dialog.destroy()
 
-        join_button = ttk.Button(dialog, text="Join", command=join)
-        join_button.grid(row=2, column=0, sticky="e", padx=(0, 8), pady=(0, 16))
-        ttk.Button(dialog, text="Cancel", command=dialog.destroy).grid(
+        accept_button = ttk.Button(dialog, text=accept_text, command=accept)
+        accept_button.grid(row=2, column=0, sticky="e", padx=(0, 8), pady=(0, 16))
+        ttk.Button(dialog, text=_("Cancel"), command=dialog.destroy).grid(
             row=2, column=1, sticky="w", padx=(0, 16), pady=(0, 16)
         )
         dialog.columnconfigure(0, weight=1)
-        dialog.bind("<Return>", lambda event: join())
+        dialog.bind("<Return>", lambda event: accept())
         dialog.bind("<Escape>", lambda event: dialog.destroy())
 
 
@@ -2065,14 +2528,16 @@ class App:
                 dialog.grab_set()
                 dialog.lift()
                 dialog.focus_force()
-                join_button.focus_set()
+                accept_button.focus_set()
             except tk.TclError:
                 pass
 
         dialog.update_idletasks()
         dialog.after(30, arm)
-        self.root.wait_window(dialog)
-        return choice["join"]
+        parent.wait_window(dialog)
+        if previous_grab is not None and previous_grab.winfo_exists():
+            previous_grab.grab_set()
+        return choice["accepted"]
 
     def join_room(self, room_id):
         client = self.client
@@ -2094,7 +2559,7 @@ class App:
                 password = self.server_entry.get("password") or None
             if password is None:
                 password = simpledialog.askstring(
-                    "Join Room", f"Password for {channel.name}:", show="*", parent=self.root
+                    _("Join Room"), _("Password for {0}:").format(channel.name), show="*", parent=self.root
                 )
                 if password is None:
                     return
@@ -2122,7 +2587,8 @@ class App:
             label += f"  ({client.state})"
 
         tree.insert("", "end", iid="server", text=f" {label}", image=self.icons["server"], open=True)
-        for channel in sorted(client.channels.values(), key=lambda entry: entry.id):
+        channels = dict(client.channels)
+        for channel in sorted(channels.values(), key=lambda entry: entry.id):
             if channel.ptt:
                 icon = self.icons["channel_ptt"]
             elif channel.music:
@@ -2137,7 +2603,7 @@ class App:
 
         users = sorted(client.users.values(), key=lambda entry: (entry.sid != client.my_sid, entry.name.lower()))
         for user in users:
-            parent = f"ch{user.room}" if user.room in client.channels else "server"
+            parent = f"ch{user.room}" if user.room in channels else "server"
             tags = ("self",) if user.sid == client.my_sid else ()
             tree.insert(
                 parent, "end", iid=f"u{user.sid}", text=f" {user.name}", image=self.icons["user_idle"], tags=tags
@@ -2172,7 +2638,7 @@ class App:
         client = self.client
         if not client:
             return
-        for user in client.users.values():
+        for user in list(client.users.values()):
             kind = self.user_icon_kind(user)
             item = f"u{user.sid}"
             if self.icon_state.get(item) != kind and self.tree.exists(item):
@@ -2202,10 +2668,98 @@ class App:
             return
         self.entry.delete(0, "end")
         client = self.client
+        if not text.startswith("/") or not self.chat_command(client, text):
+            self.send_chat(client, text)
+
+    def send_chat(self, client, text):
         if client and client.connected and client.my_room is not None:
             client.send_text(text)
         else:
-            self.log("Join a room to chat.", "err")
+            self.log(_("Join a room to chat."), "err")
+
+    def named_user(self, client, name):
+        user = client.find_user(name)
+        if user is None:
+            self.log(_("no such user {0!r}").format(name), "err")
+        return user
+
+    def join_named_room(self, client, text):
+        words = text.split()
+        for count in range(len(words), 0, -1):
+            channel = client.find_channel(" ".join(words[:count]))
+            if channel:
+                password = " ".join(words[count:])
+                if password and channel.access & ACCESS_PASSWORD:
+                    self.passwords[(client.server_hash, channel.id)] = password
+                self.join_room(channel.id)
+                return
+        room_names = ", ".join(channel.name for channel in client.channels.values())
+        self.log(_("no such room {0!r}; rooms: {1}").format(words[0] if words else "", room_names), "err")
+
+    def set_self_state(self, variable, toggle, wanted):
+        if not self.chat_only and variable.get() != wanted:
+            variable.set(wanted)
+            toggle()
+
+    def chat_command(self, client, text):
+        command, separator, rest = text.partition(" ")
+        command = command.lower()
+        rest = rest.strip()
+        if command in ("/help", "/ptt", "/quit"):
+            self.log(_(CHAT_COMMANDS), "sys")
+        elif not client or not client.connected:
+            self.log(_("Not connected."), "err")
+        elif command == "/join":
+            self.join_named_room(client, rest)
+        elif command == "/say":
+            self.send_chat(client, rest)
+        elif command == "/poke":
+            user_name, separator, message = rest.partition(" ")
+            user = self.named_user(client, user_name)
+            if user:
+                client.poke(user.sid, message)
+        elif command == "/who":
+            for user in list(client.users.values()):
+                self.log(self.describe_user(user), "sys")
+        elif command in ("/mute", "/unmute"):
+            self.set_self_state(self.mute_var, self.toggle_mute, command == "/mute")
+        elif command in ("/deaf", "/undeaf"):
+            self.set_self_state(self.deaf_var, self.toggle_deaf, command == "/deaf")
+        elif command in ADMIN_COMMANDS:
+            user = self.named_user(client, rest)
+            if user:
+                self.admin_action(user, ADMIN_COMMANDS[command], confirm=False)
+        elif command == "/move":
+            user_name, separator, room_name = rest.partition(" ")
+            user = client.find_user(user_name)
+            channel = client.find_channel(room_name)
+            if user and channel:
+                self.admin_action(user, ADMIN_MOVE, channel.id)
+            else:
+                self.log(_("usage: /move USER ROOM"), "err")
+        elif command in ("/answer", "/reject"):
+            if rest:
+                client.dialin(DIALIN_ANSWER if command == "/answer" else DIALIN_REJECT, rest)
+            else:
+                self.log(_("Usage: {0} CALL, where CALL is the start of the phone's identity hash.").format(command), "err")
+        elif command in ("/pair", "/unpair"):
+            client.dialin(DIALIN_ADD if command == "/pair" else DIALIN_REMOVE, rest)
+        elif command == "/phones":
+            client.dialin(DIALIN_LIST)
+        elif command == "/motd":
+            client.configure_server(CONFIG_MOTD, rest)
+        elif command == "/roomadd":
+            name, separator, profile = rest.partition(":")
+            client.configure_server(CONFIG_ROOM_ADD, {"name": name.strip(), "profile": profile.strip() or None})
+        elif command == "/roomdel":
+            channel = client.find_channel(rest)
+            if channel:
+                client.configure_server(CONFIG_ROOM_REMOVE, channel.id)
+            else:
+                self.log(_("no such room {0!r}").format(rest), "err")
+        else:
+            return False
+        return True
 
 
     def room_name(self, room_id):
@@ -2219,21 +2773,37 @@ class App:
         kind = event[0]
         if kind == "connected":
             if client.hops is not None:
-                plural = "s" if client.hops != 1 else ""
-                path = f" ({client.hops} hop{plural} away)"
+                path = " (" + ngettext("{0} hop away", "{0} hops away", client.hops).format(client.hops) + ")"
             else:
                 path = ""
             motd = f" {client.motd}" if client.motd else ""
-            self.log(f"Connected to {client.server_name}{path}.{motd}", "sys")
+            self.log(_("Connected to {0}{1}.{2}").format(client.server_name, path, motd), "sys")
             self.tree_dirty = True
             self.reconnect_attempt = 0
         elif kind == "synced":
-            for channel in client.channels.values():
+            for channel in list(client.channels.values()):
                 if channel.dialin_number:
-                    self.log(f"{channel.name} can be called from rnphone: {channel.dialin_number}", "sys")
+                    self.log(_("{0} can be called from rnphone: {1}").format(channel.name, channel.dialin_number), "sys")
             self.tree_dirty = True
         elif kind == "channel":
             self.tree_dirty = True
+            self.refresh_settings_window()
+        elif kind == "channel_gone":
+            self.log(_("Room {0} was removed.").format(event[1].name), "sys")
+            self.tree_dirty = True
+            self.refresh_settings_window()
+        elif kind == "motd":
+            self.log((_("Message of the day: {0}").format(event[1]) if event[1] else _("The message of the day was cleared.")), "sys")
+            self.refresh_settings_window()
+        elif kind == "room_spec":
+            window = self.settings_window
+            if window is not None and window.winfo_exists():
+                window.room_spec(event[1], event[2])
+        elif kind == "call_waiting":
+            self.log(_("Phone call from {0} is waiting. Right-click the room to answer it, or type /answer {1}.").format(event[1], event[1][:8]), "err")
+            self.sounds.play("join")
+        elif kind == "call_done":
+            self.log(_("Phone call from {0}... {1}.").format(event[1][:8], _(CALL_OUTCOMES.get(event[2], event[2]))), "sys")
         elif kind == "room":
             self.apply_settings()
             channel = client.channels.get(event[1])
@@ -2243,14 +2813,14 @@ class App:
                     text += " Listen only: this room's listed speakers are the only ones who can talk here."
                 self.log(text, "sys")
             else:
-                self.log("Not in any room: double-click a room to join it.", "sys")
+                self.log(_("Not in any room: double-click a room to join it."), "sys")
             self.tree_dirty = True
         elif kind == "denied":
             room_id, reason = event[1], event[2]
             if room_id is not None:
-                self.log(f"Cannot join {self.room_name(room_id)}: {reason}", "err")
+                self.log(_("Cannot join {0}: {1}").format(self.room_name(room_id), reason), "err")
             else:
-                self.log(f"Refused: {reason}", "err")
+                self.log(_("Refused: {0}").format(reason), "err")
             if "password" in reason:
                 self.passwords.pop((client.server_hash, room_id), None)
         elif kind == "info":
@@ -2259,12 +2829,12 @@ class App:
             self.log(event[1], "err")
         elif kind == "version":
             self.log(
-                f"The server runs Partyline {event[1]} and you run {APP_VERSION}. Please update so both match.", "err"
+                _("The server runs Partyline {0} and you run {1}. Please update so both match.").format(event[1], APP_VERSION), "err"
             )
         elif kind == "user_joined":
             user = event[1]
             if user.sid != client.my_sid and client.synced:
-                self.log(f"{user.name} connected", "sys")
+                self.log(_("{0} connected").format(user.name), "sys")
                 if user.room == client.my_room and client.my_room is not None:
                     self.sounds.play("room_join")
                 else:
@@ -2272,7 +2842,7 @@ class App:
             self.apply_remembered_user_settings(user)
             self.tree_dirty = True
         elif kind == "user_left":
-            self.log(f"{event[1].name} disconnected", "sys")
+            self.log(_("{0} disconnected").format(event[1].name), "sys")
             if event[1].room == client.my_room and client.my_room is not None:
                 self.sounds.play("room_leave")
             else:
@@ -2282,7 +2852,7 @@ class App:
             user = event[1]
             previous_room = event[2]
             if user.sid != client.my_sid:
-                self.log(f"{user.name} moved to {self.room_name(user.room)}", "sys")
+                self.log(_("{0} moved to {1}").format(user.name, self.room_name(user.room)), "sys")
                 if user.room == client.my_room and client.my_room is not None:
                     self.sounds.play("room_join")
                 elif previous_room == client.my_room and client.my_room is not None:
@@ -2291,22 +2861,22 @@ class App:
         elif kind == "user_state":
             user, previous = event[1], event[2]
             if user.operator != previous.operator and user.sid != client.my_sid:
-                self.log(f"{user.name} is {'now' if user.operator else 'no longer'} an operator.", "sys")
+                self.log((_("{0} is now an operator.") if user.operator else _("{0} is no longer an operator.")).format(user.name), "sys")
             self.tree_dirty = True
         elif kind == "text":
             sender = event[1]
             is_me = getattr(sender, "sid", None) == client.my_sid
             self.log(event[2], "me" if is_me else "name", who=getattr(sender, "name", "?"))
         elif kind == "poke":
-            self.log(f"{getattr(event[1], 'name', 'Someone')} poked you: {event[2]}", "err")
-            PokeWindow(self, event[1], event[2])
+            self.log(_("{0} poked you: {1}").format(getattr(event[1], 'name', 'Someone'), event[2]), "err")
+            self.show_poke(event[1], event[2])
         elif kind == "poked":
-            self.log(f"You poked {getattr(event[1], 'name', '?')}: {event[2]}", "sys")
+            self.log(_("You poked {0}: {1}").format(getattr(event[1], 'name', '?'), event[2]), "sys")
         elif kind == "error":
             self.log(event[1], "err")
             self.tree_dirty = True
         elif kind == "closed":
-            self.log(f"Connection lost: {event[1]}", "err")
+            self.log(_("Connection lost: {0}").format(event[1]), "err")
             self.sounds.play("disconnect")
             if client.kicked:
                 self.wanted = False  # kicked or banned: do not come straight back
@@ -2322,6 +2892,21 @@ class App:
             self.client.set_local_mute(user.sid, True)
 
     def refresh(self):
+        try:
+            self.refresh_window()
+        except Exception as error:
+            text = f"{type(error).__name__}: {error}"
+            if text != self.refresh_error:
+                self.refresh_error = text
+                RNS.log(f"Window refresh failed: {text}", RNS.LOG_ERROR)
+        finally:
+            self.root.after(REFRESH_MS, self.refresh)
+
+    def refresh_window(self):
+        status = self.rns_status
+        if status is not None and status is not self.rns_shown:
+            self.show_reticulum_status(status)
+
         client = self.client
         if client:
             while client.events:
@@ -2351,18 +2936,18 @@ class App:
                         where += " (listen only)"
                 else:
                     where = ", not in a room"
-                self.status_var.set(f"Connected to {client.server_name}{where}")
+                self.status_var.set(_("Connected to {0}{1}").format(client.server_name, where))
             elif not client.connected:
                 self.status_var.set(client.state.capitalize() + "...")
             if self.settings["debug_stats"]:
                 playout = client.playout
                 audio = ""
                 if playout:
-                    audio = (
-                        f"   lost {playout.lost}  late {playout.recovered}  concealed {playout.concealed}  "
-                        f"dropped {playout.dropped + client.dropped}  buffer {playout.depth_ms} ms"
-                    )
-                self.rate_var.set(f"TX {stats['tx_kbps']:4.1f} kbps   RX {stats['rx_kbps']:4.1f} kbps{audio}")
+                    audio = _("   buffer {0:g} ms  ↑{1} ↓{2}").format(playout.depth_ms, playout.grew, playout.shrank)
+                self.rate_var.set(_("TX {0:4.1f} kbps   RX {1:4.1f} kbps{2}").format(stats['tx_kbps'], stats['rx_kbps'], audio))
+                if time.monotonic() >= self._debug_next:
+                    self.debug_report = diagnostics.snapshot(client, stats)
+                    self._debug_next = time.monotonic() + 0.5
             else:
                 self.rate_var.set("")
             self.meter["value"] = max(0, client.level + 80)
@@ -2373,17 +2958,17 @@ class App:
             if self.wanted and self.reconnect_job:
                 seconds_left = max(0, int(self.reconnect_at - time.time()))
                 self.status_var.set(
-                    f"Connection lost, attempting to reconnect in {seconds_left} s (attempt {self.reconnect_attempt + 1})"
+                    _("Connection lost, attempting to reconnect in {0} s (attempt {1})").format(seconds_left, self.reconnect_attempt + 1)
                 )
             else:
-                self.status_var.set("Not connected")
+                self.status_var.set(_("Not connected"))
             self.rate_var.set("")
             self.meter["value"] = 0
             self.tx_label.config(bg=self.palette["tx_off"])
             self.connect_button.state(["!disabled"])
             self.disconnect_button.state(["!disabled"] if self.wanted else ["disabled"])
 
-        self.root.after(REFRESH_MS, self.refresh)
+        self.update_transmission_status()
 
 
 def main():
@@ -2397,9 +2982,10 @@ def main():
     RNS.Reticulum(configdir=args.configdir)
     identity = load_identity(args.identity)
     tune_gc()
-    print(f"Our identity hash: {identity.hash.hex()}", flush=True)
+    print(_("Our identity hash: {0}").format(identity.hash.hex()), flush=True)
 
     settings = Settings()
+    install_language(settings["language"])
     servers = ServerList()
     discovery = Discovery()
 

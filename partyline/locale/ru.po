@@ -1,0 +1,1130 @@
+# Русский translations for Partyline.
+# Distributed under the same license as Partyline.
+
+msgid ""
+msgstr ""
+"Project-Id-Version: partyline 1.0.0\n"
+"Report-Msgid-Bugs-To: \n"
+"PO-Revision-Date: 2026-09-11 07:24+0000\n"
+"Last-Translator: Codex\n"
+"Language-Team: Русский\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
+
+msgid "(system default)"
+msgstr "(по умолчанию в системе)"
+
+#, python-brace-format
+msgid "*** phone call from {0} is waiting: /answer {1} or /reject {2}"
+msgstr "*** входящий звонок от {0}: /answer {1} или /reject {2}"
+
+#, python-brace-format
+msgid "*** the server runs Partyline {0}, you run {1}: please update so both match"
+msgstr "*** сервер использует Partyline {0}, а вы используете версию {1}: обновите Partyline, чтобы версии совпадали"
+
+#, python-brace-format
+msgid "*** {0} poked you: {1}"
+msgstr "*** {0} привлекает ваше внимание: {1}"
+
+#. {0} is a translated count such as "2 other programs".
+#, python-brace-format
+msgid ", alongside {0}"
+msgstr ", параллельно: {0}"
+
+msgid ", listed speakers only"
+msgstr ", говорить могут только участники из списка"
+
+msgid ", running as the shared instance"
+msgstr ", работает как общий экземпляр"
+
+#. {0} is a translated count such as "2 other programs".
+#, python-brace-format
+msgid ", serving {0}"
+msgstr ", на обслуживании: {0}"
+
+msgid ", transport enabled"
+msgstr ", транспорт включён"
+
+msgid "A group voice application for Reticulum, built on LXST"
+msgstr "Приложение для группового голосового общения в сети Reticulum на базе LXST"
+
+msgid "About"
+msgstr "О программе"
+
+msgid "Access"
+msgstr "Доступ"
+
+msgid "Add"
+msgstr "Добавить"
+
+msgid "Add Interface"
+msgstr "Добавить интерфейс"
+
+msgid "Add New..."
+msgstr "Добавить новый..."
+
+msgid "Add Room"
+msgstr "Добавить комнату"
+
+msgid "Add Server"
+msgstr "Добавить сервер"
+
+msgid "Add to Favorites"
+msgstr "Добавить в избранное"
+
+msgid "Add..."
+msgstr "Добавить..."
+
+msgid "Address"
+msgstr "Адрес"
+
+#, python-brace-format
+msgid "Address {0}"
+msgstr "Адрес {0}"
+
+#, python-brace-format
+msgid "Address {0}, {1}, {2} users"
+msgstr "Адрес {0}, {1}, пользователей: {2}"
+
+msgid "Advanced settings"
+msgstr "Дополнительные настройки"
+
+msgid "Allow list, one identity hash per line (blank for everyone)"
+msgstr "Список доступа: один хеш идентификатора на строку (оставьте пустым, чтобы разрешить доступ всем)"
+
+msgid "Announces in/out"
+msgstr "Анонсы вх./исх."
+
+#, python-brace-format
+msgid "Answer phone call {0}..."
+msgstr "Ответить на звонок {0}..."
+
+msgid "Appearance and Language"
+msgstr "Внешний вид и язык"
+
+msgid "Apply"
+msgstr "Применить"
+
+#, python-brace-format
+msgid "Attempting to reconnect in {0} s (attempt {1}). Disconnect to stop."
+msgstr "Повторная попытка подключения через {0} с (попытка {1}). Чтобы прекратить попытки, отключитесь."
+
+msgid "Audio"
+msgstr "Аудио"
+
+msgid "Audio Input"
+msgstr "Аудиовход"
+
+msgid "Audio Output"
+msgstr "Аудиовыход"
+
+msgid "Automatic gain control (AGC)"
+msgstr "Автоматическая регулировка усиления (AGC)"
+
+msgid "Ban"
+msgstr "Заблокировать"
+
+#, python-brace-format
+msgid "Ban {0}?"
+msgstr "Заблокировать {0}?"
+
+msgid "Bitrate"
+msgstr "Битрейт"
+
+msgid "Broadcast room: only these speakers may talk, one hash per line"
+msgstr "Комната трансляции: говорить могут только указанные участники, один хеш на строку"
+
+msgid "Cancel"
+msgstr "Отмена"
+
+#, python-brace-format
+msgid "Cannot join {0}: {1}"
+msgstr "Не удалось войти в {0}: {1}"
+
+msgid "Chat only"
+msgstr "Только чат"
+
+msgid "Chat-only"
+msgstr "Только чат"
+
+#, python-brace-format
+msgid "Check the numbers and identity hashes: {0}"
+msgstr "Проверьте числовые значения и хеши идентификаторов: {0}"
+
+msgid "Checking..."
+msgstr "Проверка..."
+
+msgid "Clear"
+msgstr "Очистить"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "Codec2 1200 bps, 400 ms frames"
+msgstr "Codec2 1200 бит/с, кадры по 400 мс"
+
+msgid "Codec2 2400 bps, 200 ms frames"
+msgstr "Codec2 2400 бит/с, кадры по 200 мс"
+
+msgid "Codec2 3200 bps, 200 ms frames"
+msgstr "Codec2 3200 бит/с, кадры по 200 мс"
+
+msgid "Codec2 700 bps, 400 ms frames"
+msgstr "Codec2 700 бит/с, кадры по 400 мс"
+
+msgid "Commands: /join ROOM [PASSWORD], /say TEXT, /poke USER TEXT, /who, /mute, /unmute, /deaf, /undeaf, /kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, /answer CALL, /reject CALL, /pair HASH, /unpair HASH, /phones, /motd TEXT, /roomadd NAME[:PROFILE], /roomdel ROOM"
+msgstr "Команды: /join КОМНАТА [ПАРОЛЬ], /say ТЕКСТ, /poke ПОЛЬЗОВАТЕЛЬ ТЕКСТ, /who, /mute, /unmute, /deaf, /undeaf, /kick ПОЛЬЗОВАТЕЛЬ, /ban ПОЛЬЗОВАТЕЛЬ, /smute ПОЛЬЗОВАТЕЛЬ, /sunmute ПОЛЬЗОВАТЕЛЬ, /op ПОЛЬЗОВАТЕЛЬ, /deop ПОЛЬЗОВАТЕЛЬ, /move ПОЛЬЗОВАТЕЛЬ КОМНАТА, /answer ЗВОНОК, /reject ЗВОНОК, /pair ХЕШ, /unpair ХЕШ, /phones, /motd ТЕКСТ, /roomadd ИМЯ[:ПРОФИЛЬ], /roomdel КОМНАТА"
+
+msgid "Configuration"
+msgstr "Конфигурация"
+
+#, python-brace-format
+msgid "Configuration file: {0}"
+msgstr "Файл конфигурации: {0}"
+
+msgid "Configure"
+msgstr "Настроить"
+
+msgid "Connect"
+msgstr "Подключиться"
+
+msgid "Connect chat-only?\n\nYou will not be able to talk or hear anyone. Only the chat window works. Use this on very slow links where voice cannot get through."
+msgstr "Подключиться только к текстовому чату?\n\nВы не сможете говорить или слышать других участников. Будет работать только окно чата. Используйте этот режим при очень медленном соединении, когда передача голоса невозможна."
+
+msgid "Connect to Server"
+msgstr "Подключиться к серверу"
+
+msgid "Connect..."
+msgstr "Подключиться..."
+
+msgid "Connected to the shared Reticulum instance (rnsd). Restart it after changing interfaces."
+msgstr "Подключено к общему экземпляру Reticulum (rnsd). Перезапустите его после изменения интерфейсов."
+
+#, python-brace-format
+msgid "Connected to {0}{1}"
+msgstr "Подключено к {0}{1}"
+
+#, python-brace-format
+msgid "Connected to {0}{1}.{2}"
+msgstr "Подключено к {0}{1}.{2}"
+
+#, python-brace-format
+msgid "Connecting chat-only to {0} ({1}...) as {2}"
+msgstr "Подключение к {0} ({1}...) под именем {2}, только текстовый чат"
+
+#, python-brace-format
+msgid "Connecting to {0} ({1}...) as {2}"
+msgstr "Подключение к {0} ({1}...) под именем {2}"
+
+#, python-brace-format
+msgid "Connection lost, attempting to reconnect in {0} s (attempt {1})"
+msgstr "Соединение потеряно, повторная попытка подключения через {0} с (попытка {1})"
+
+#, python-brace-format
+msgid "Connection lost: {0}"
+msgstr "Соединение потеряно: {0}"
+
+msgid "Continuous"
+msgstr "Непрерывная"
+
+msgid "Copy"
+msgstr "Копировать"
+
+msgid "Copy address"
+msgstr "Копировать адрес"
+
+msgid "Copy dial-in number"
+msgstr "Копировать номер для дозвона"
+
+msgid "Copy identity hash"
+msgstr "Копировать хеш идентификатора"
+
+#, python-brace-format
+msgid "Could not write {0}: {1}"
+msgstr "Не удалось записать {0}: {1}"
+
+msgid "Dark Mode"
+msgstr "Тёмная тема"
+
+msgid "Dark mode"
+msgstr "Тёмная тема"
+
+msgid "Deafen"
+msgstr "Отключить звук"
+
+msgid "Deafen Self"
+msgstr "Отключить звук у себя"
+
+msgid "Deafened (and muted)."
+msgstr "Звук отключён (микрофон тоже)."
+
+msgid "Details..."
+msgstr "Подробности..."
+
+msgid "Device"
+msgstr "Устройство"
+
+#, python-brace-format
+msgid "Dial-in number: {0}"
+msgstr "Номер для дозвона: {0}"
+
+msgid "Disable"
+msgstr "Отключить"
+
+msgid "Disconnect"
+msgstr "Отключиться"
+
+msgid "Disconnected from the server"
+msgstr "Соединение с сервером разорвано"
+
+msgid "Disconnected."
+msgstr "Соединение разорвано."
+
+#, python-brace-format
+msgid "Discovered ({0})"
+msgstr "Обнаруженные ({0})"
+
+msgid "Display debug stats (bitrates and loss counters in the status bar)"
+msgstr "Показывать статистику отладки (битрейт и счётчики потерь в строке состояния)"
+
+msgid "Display name"
+msgstr "Отображаемое имя"
+
+msgid "Don't show this again"
+msgstr "Больше не показывать"
+
+#, python-brace-format
+msgid "Edit Interface: {0}"
+msgstr "Изменить интерфейс: {0}"
+
+msgid "Edit Room..."
+msgstr "Изменить комнату..."
+
+#, python-brace-format
+msgid "Edit Room: {0}"
+msgstr "Изменить комнату: {0}"
+
+msgid "Edit Server"
+msgstr "Изменить сервер"
+
+msgid "Edit..."
+msgstr "Изменить..."
+
+msgid "Enable"
+msgstr "Включить"
+
+msgid "Enable max jitter buffer"
+msgstr "Включить максимальный джиттер-буфер"
+
+msgid "Enabled"
+msgstr "Включено"
+
+msgid "Favorites"
+msgstr "Избранное"
+
+msgid "Fill the link MTU"
+msgstr "Заполнять пакеты до MTU соединения"
+
+msgid "Filter"
+msgstr "Фильтр"
+
+msgid "Frames per packet"
+msgstr "Кадров в пакете"
+
+msgid "Give the custom interface a type name."
+msgstr "Укажите имя типа нестандартного интерфейса."
+
+msgid "Give the interface a name."
+msgstr "Укажите имя интерфейса."
+
+msgid "Give the room a name."
+msgstr "Укажите название комнаты."
+
+msgid "Hang time"
+msgstr "Задержка отключения"
+
+msgid "Help"
+msgstr "Справка"
+
+msgid "Hey!"
+msgstr "Привет!"
+
+msgid "Identified users only"
+msgstr "Только идентифицированные пользователи"
+
+msgid "Identity hash"
+msgstr "Хеш идентификатора"
+
+msgid "Identity hash of the phone (32 hex characters):"
+msgstr "Хеш идентификатора телефона (32 шестнадцатеричных символа):"
+
+msgid "Input level"
+msgstr "Уровень входного сигнала"
+
+msgid "Interface"
+msgstr "Интерфейс"
+
+#, python-brace-format
+msgid "Interface: {0}"
+msgstr "Интерфейс: {0}"
+
+msgid "Interfaces..."
+msgstr "Интерфейсы..."
+
+msgid "Jitter buffer"
+msgstr "Джиттер-буфер"
+
+msgid "Join"
+msgstr "Войти"
+
+msgid "Join Room"
+msgstr "Войти в комнату"
+
+msgid "Join a room to chat."
+msgstr "Войдите в комнату, чтобы общаться в чате."
+
+msgid "Kick"
+msgstr "Исключить"
+
+#, python-brace-format
+msgid "Kick {0}?"
+msgstr "Исключить {0}?"
+
+msgid "Language"
+msgstr "Язык"
+
+msgid "List paired phones"
+msgstr "Показать привязанные телефоны"
+
+msgid "Listen only"
+msgstr "Только слушать"
+
+#, python-brace-format
+msgid "Local Volume: {0}"
+msgstr "Локальная громкость: {0}"
+
+msgid "Make Operator"
+msgstr "Назначить оператором"
+
+msgid "Message of the day"
+msgstr "Сообщение дня"
+
+#, python-brace-format
+msgid "Message of the day: {0}"
+msgstr "Сообщение дня: {0}"
+
+#, python-brace-format
+msgid "Message to {0}:"
+msgstr "Сообщение для {0}:"
+
+msgid "Microphone"
+msgstr "Микрофон"
+
+msgid "More options"
+msgstr "Другие параметры"
+
+msgid "Move to"
+msgstr "Переместить в"
+
+msgid "Mute"
+msgstr "Отключить микрофон"
+
+msgid "Mute Locally"
+msgstr "Отключить звук у себя"
+
+msgid "Mute Self"
+msgstr "Отключить свой микрофон"
+
+msgid "Muted."
+msgstr "Микрофон отключён."
+
+msgid "Muting and deafening"
+msgstr "Отключение микрофона и звука"
+
+msgid "Name"
+msgstr "Имя"
+
+msgid "No interface sections found. Each interface needs a [[Name]] line followed by its settings."
+msgstr "Разделы интерфейсов не найдены. Для каждого интерфейса нужна строка [[Имя]], за которой следуют его настройки."
+
+msgid "Not connected"
+msgstr "Нет соединения"
+
+msgid "Not connected."
+msgstr "Нет соединения."
+
+msgid "Not in any room: double-click a room to join it."
+msgstr "Вы ещё не вошли ни в одну комнату: дважды щёлкните по комнате, чтобы войти."
+
+msgid "Offline, no interfaces configured"
+msgstr "Не в сети, интерфейсы не настроены"
+
+#, python-brace-format
+msgid "Offline, no interfaces up (0 of {0})"
+msgstr "Не в сети, нет активных интерфейсов (0 из {0})"
+
+msgid "Offline, the shared instance has no interfaces configured"
+msgstr "Не в сети, у общего экземпляра нет настроенных интерфейсов"
+
+#, python-brace-format
+msgid "Offline, the shared instance has no interfaces up (0 of {0})"
+msgstr "Не в сети, у общего экземпляра нет активных интерфейсов (0 из {0})"
+
+#, python-brace-format
+msgid "Offline, {0}"
+msgstr "Не в сети, {0}"
+
+#. {0} is the active count; {1} includes the translated word "interfaces".
+#, python-brace-format
+msgid "Online through the shared instance, {0} of {1} up"
+msgstr "В сети через общий экземпляр, активно: {0}, всего: {1}"
+
+#. {0} is the active count; {1} includes the translated word "interfaces".
+#, python-brace-format
+msgid "Online, {0} of {1} up"
+msgstr "В сети, активно: {0}, всего: {1}"
+
+msgid "Only modify these settings if you know what you are doing"
+msgstr "Меняйте эти настройки, только если знаете, что делаете"
+
+msgid "Only operators can change server settings."
+msgstr "Только операторы могут изменять настройки сервера."
+
+msgid "Operator actions"
+msgstr "Действия оператора"
+
+msgid "Opus 16 kbps, 20 ms frames"
+msgstr "Opus 16 кбит/с, кадры по 20 мс"
+
+msgid "Opus 6 kbps, 60 ms frames"
+msgstr "Opus 6 кбит/с, кадры по 60 мс"
+
+msgid "Opus 8 kbps, 60 ms frames"
+msgstr "Opus 8 кбит/с, кадры по 60 мс"
+
+msgid "Opus music 14 kbps, 40 ms frames"
+msgstr "Opus для музыки 14 кбит/с, кадры по 40 мс"
+
+msgid "Opus music 28 kbps, 40 ms frames"
+msgstr "Opus для музыки 28 кбит/с, кадры по 40 мс"
+
+msgid "Opus music 56 kbps, 40 ms frames"
+msgstr "Opus для музыки 56 кбит/с, кадры по 40 мс"
+
+msgid "Other (custom type)"
+msgstr "Другой (свой тип)"
+
+msgid "Other settings (key = value per line, sub-interfaces as [[[Name]]] sections)"
+msgstr "Другие настройки (ключ = значение на каждой строке, вложенные интерфейсы задаются в разделах [[[Имя]]])"
+
+#, python-brace-format
+msgid "Other settings could not be read: {0}"
+msgstr "Не удалось прочитать другие настройки: {0}"
+
+#, python-brace-format
+msgid "Our identity hash: {0}"
+msgstr "Наш хеш идентификатора: {0}"
+
+msgid "Pair a phone"
+msgstr "Привязать телефон"
+
+msgid "Pair a phone..."
+msgstr "Привязать телефон..."
+
+#, python-brace-format
+msgid "Partyline is about to change the Reticulum configuration file\n\n{path}\n\nComments and other settings in the file are kept, a copy of the original is saved next to it as config.bak, and changes take effect when Reticulum restarts. Allow Partyline to edit this file? This is asked only once."
+msgstr "Partyline собирается изменить файл конфигурации Reticulum\n\n{path}\n\nКомментарии и другие настройки в файле будут сохранены, а копия исходного файла будет сохранена рядом с ним как config.bak. Изменения вступят в силу после перезапуска Reticulum. Разрешить Partyline изменить этот файл? Этот вопрос задаётся только один раз."
+
+msgid "Partyline runs its own Reticulum instance. Restart Partyline after changing interfaces."
+msgstr "Partyline запускает собственный экземпляр Reticulum. Перезапустите Partyline после изменения интерфейсов."
+
+#, python-brace-format
+msgid "Password for {0}:"
+msgstr "Пароль для {0}:"
+
+msgid "Paste Interface"
+msgstr "Вставить интерфейс"
+
+msgid "Paste one or more interface sections as they appear in the Reticulum config file, for example:"
+msgstr "Вставьте один или несколько разделов интерфейсов в том виде, в котором они указаны в файле конфигурации Reticulum, например:"
+
+msgid "Paste..."
+msgstr "Вставить..."
+
+#, python-brace-format
+msgid "Phone call from {0} is waiting. Right-click the room to answer it, or type /answer {1}."
+msgstr "Входящий звонок от {0}. Чтобы ответить, щёлкните правой кнопкой мыши по комнате или введите /answer {1}."
+
+#, python-brace-format
+msgid "Phone call from {0}... {1}."
+msgstr "Звонок от {0}... {1}."
+
+msgid "Play"
+msgstr "Воспроизвести"
+
+msgid "Play sound effects"
+msgstr "Воспроизводить звуковые эффекты"
+
+msgid "Poke"
+msgstr "Привлечь внимание"
+
+msgid "Poke..."
+msgstr "Привлечь внимание..."
+
+msgid "Push To Talk"
+msgstr "Нажать, чтобы говорить"
+
+msgid "Push to talk"
+msgstr "Нажать, чтобы говорить"
+
+msgid "Push to talk on and off"
+msgstr "Включение и выключение режима «Нажать, чтобы говорить»"
+
+msgid "Push to talk room, buffer"
+msgstr "Комната с передачей по нажатию, буфер"
+
+msgid "Push-to-talk room"
+msgstr "Комната с передачей по нажатию"
+
+msgid "Quit"
+msgstr "Выход"
+
+#, python-brace-format
+msgid "RTT {0} ms"
+msgstr "RTT {0} мс"
+
+msgid "Received"
+msgstr "Получено"
+
+#, python-brace-format
+msgid "Reconnecting chat-only to {0} ({1}...) as {2}"
+msgstr "Повторное подключение к {0} ({1}...) под именем {2}, только текстовый чат"
+
+#, python-brace-format
+msgid "Reconnecting to {0} ({1}...) as {2}"
+msgstr "Повторное подключение к {0} ({1}...) под именем {2}"
+
+msgid "Refresh"
+msgstr "Обновить"
+
+#, python-brace-format
+msgid "Refused: {0}"
+msgstr "Отказ: {0}"
+
+#, python-brace-format
+msgid "Reject phone call {0}..."
+msgstr "Отклонить звонок {0}..."
+
+msgid "Remove"
+msgstr "Удалить"
+
+msgid "Remove Operator"
+msgstr "Снять права оператора"
+
+msgid "Remove interface"
+msgstr "Удалить интерфейс"
+
+msgid "Remove room"
+msgstr "Удалить комнату"
+
+#, python-brace-format
+msgid "Remove the interface “{0}” from the configuration?"
+msgstr "Удалить интерфейс «{0}» из конфигурации?"
+
+#, python-brace-format
+msgid "Remove the room “{0}”? Its members move to the default room."
+msgstr "Удалить комнату «{0}»? Её участники будут перемещены в комнату по умолчанию."
+
+#, python-brace-format
+msgid "Remove {0!r} from favorites?"
+msgstr "Удалить {0!r} из избранного?"
+
+msgid "Reset"
+msgstr "Сбросить"
+
+msgid "Reticulum Interfaces"
+msgstr "Интерфейсы Reticulum"
+
+msgid "Reticulum is not running in this application."
+msgstr "Reticulum не запущен в этом приложении."
+
+#, python-brace-format
+msgid "Reticulum: {0}."
+msgstr "Reticulum: {0}."
+
+msgid "Room"
+msgstr "Комната"
+
+#, python-brace-format
+msgid "Room {0} was removed."
+msgstr "Комната {0} удалена."
+
+msgid "Rooms"
+msgstr "Комнаты"
+
+msgid "Save"
+msgstr "Сохранить"
+
+#, python-brace-format
+msgid "Saved. The change takes effect when Reticulum restarts: {target}."
+msgstr "Сохранено. Изменение вступит в силу после перезапуска Reticulum: {target}."
+
+msgid "Self"
+msgstr "Я"
+
+msgid "Send"
+msgstr "Отправить"
+
+msgid "Sent"
+msgstr "Отправлено"
+
+#, python-brace-format
+msgid "Sent {0} packets, {1:,} bytes. Received {2} packets, {3:,} bytes."
+msgstr "Отправлено пакетов: {0}, байт: {1:,}. Получено пакетов: {2}, байт: {3:,}."
+
+msgid "Server"
+msgstr "Сервер"
+
+msgid "Server Information"
+msgstr "Информация о сервере"
+
+msgid "Server Information..."
+msgstr "Информация о сервере..."
+
+msgid "Server Mute"
+msgstr "Отключить микрофон на сервере"
+
+msgid "Server Settings"
+msgstr "Настройки сервера"
+
+msgid "Server Settings..."
+msgstr "Настройки сервера..."
+
+msgid "Server Unmute"
+msgstr "Включить микрофон на сервере"
+
+msgid "Server password"
+msgstr "Пароль сервера"
+
+msgid "Set"
+msgstr "Задать"
+
+msgid "Set..."
+msgstr "Задать..."
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Settings..."
+msgstr "Настройки..."
+
+msgid "Shortcut"
+msgstr "Горячая клавиша"
+
+msgid "Someone enters or leaves your room"
+msgstr "Кто-то входит в вашу комнату или выходит из неё"
+
+msgid "Someone joins the server"
+msgstr "Кто-то подключается к серверу"
+
+msgid "Someone leaves the server"
+msgstr "Кто-то отключается от сервера"
+
+msgid "Sound FX"
+msgstr "Звуковые эффекты"
+
+msgid "Status"
+msgstr "Состояние"
+
+msgid "TX gain"
+msgstr "Усиление при передаче"
+
+msgid "TX off"
+msgstr "Передача выключена"
+
+#, python-brace-format
+msgid "TX {0:4.1f} kbps   RX {1:4.1f} kbps{2}"
+msgstr "TX {0:4.1f} кбит/с   RX {1:4.1f} кбит/с{2}"
+
+msgid "Takes effect after a restart"
+msgstr "Вступит в силу после перезапуска"
+
+msgid "Text size"
+msgstr "Размер текста"
+
+msgid "The codec and frame size are set by the server for each room."
+msgstr "Кодек и размер кадра задаются сервером для каждой комнаты."
+
+msgid "The message of the day was cleared."
+msgstr "Сообщение дня очищено."
+
+msgid "The running Reticulum instance uses none of the interfaces in this file. It was probably started with another configuration directory, so changes made here will not reach it."
+msgstr "Работающий экземпляр Reticulum не использует ни один из интерфейсов в этом файле. Вероятно, он запущен с другим каталогом конфигурации, поэтому изменения в этом файле на него не повлияют."
+
+#, python-brace-format
+msgid "The server runs Partyline {0} and you run {1}. Please update so both match."
+msgstr "Сервер использует Partyline {0}, а вы используете версию {1}. Обновите Partyline, чтобы версии совпадали."
+
+#, python-brace-format
+msgid "The text could not be read: {0}"
+msgstr "Не удалось прочитать текст: {0}"
+
+#, python-brace-format
+msgid "These interfaces run a program on this computer whenever Reticulum starts:\n\n{listing}\n\nAdd them anyway?"
+msgstr "Эти интерфейсы запускают программу на этом компьютере при каждом запуске Reticulum:\n\n{listing}\n\nВсё равно добавить их?"
+
+msgid "Threshold"
+msgstr "Порог"
+
+msgid "Toggle: press once to talk, again to stop"
+msgstr "Переключение: нажмите один раз, чтобы говорить, и ещё раз, чтобы остановиться"
+
+msgid "Transmission"
+msgstr "Передача"
+
+msgid "Type"
+msgstr "Тип"
+
+msgid "Type name"
+msgstr "Имя типа"
+
+msgid "Undeafened."
+msgstr "Звук включён."
+
+msgid "Unmute Locally"
+msgstr "Включить звук у себя"
+
+msgid "Unmuted."
+msgstr "Микрофон включён."
+
+#, python-brace-format
+msgid "Usage: {0} CALL, where CALL is the start of the phone's identity hash."
+msgstr "Использование: {0} ЗВОНОК, где ЗВОНОК означает начало хеша идентификатора телефона."
+
+msgid "User"
+msgstr "Пользователь"
+
+msgid "Voice Activity"
+msgstr "Голосовая активность"
+
+msgid "Welcome to Partyline. Server > Connect... to pick a server."
+msgstr "Добро пожаловать в Partyline. Выберите Сервер > Подключиться..., чтобы выбрать сервер."
+
+#, python-brace-format
+msgid "You poked {0}: {1}"
+msgstr "Вы привлекли внимание {0}: {1}"
+
+#, python-brace-format
+msgid "Your identity: {0}"
+msgstr "Ваш идентификатор: {0}"
+
+msgid "allow list"
+msgstr "список доступа"
+
+#, python-brace-format
+msgid "audio setup failed: {0}"
+msgstr "не удалось настроить аудио: {0}"
+
+#, python-brace-format
+msgid "bad server address: {0}"
+msgstr "неверный адрес сервера: {0}"
+
+msgid "commands: /join ROOM [PASSWORD], /say TEXT, /poke USER TEXT, /who, /mute, /unmute, /deaf, /undeaf, /ptt, /kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, /answer CALL, /reject CALL, /pair HASH, /unpair HASH, /phones, /motd TEXT, /roomadd NAME[:PROFILE], /roomdel ROOM, /quit"
+msgstr "команды: /join КОМНАТА [ПАРОЛЬ], /say ТЕКСТ, /poke ПОЛЬЗОВАТЕЛЬ ТЕКСТ, /who, /mute, /unmute, /deaf, /undeaf, /ptt, /kick ПОЛЬЗОВАТЕЛЬ, /ban ПОЛЬЗОВАТЕЛЬ, /smute ПОЛЬЗОВАТЕЛЬ, /sunmute ПОЛЬЗОВАТЕЛЬ, /op ПОЛЬЗОВАТЕЛЬ, /deop ПОЛЬЗОВАТЕЛЬ, /move ПОЛЬЗОВАТЕЛЬ КОМНАТА, /answer ЗВОНОК, /reject ЗВОНОК, /pair ХЕШ, /unpair ХЕШ, /phones, /motd ТЕКСТ, /roomadd ИМЯ[:ПРОФИЛЬ], /roomdel КОМНАТА, /quit"
+
+#, python-brace-format
+msgid "connected to {0!r}{1}"
+msgstr "подключено к {0!r}{1}"
+
+#, python-brace-format
+msgid "denied{0}: {1}"
+msgstr "отказ{0}: {1}"
+
+msgid "down"
+msgstr "неактивен"
+
+#. Call outcome appended to "Phone call from {0}"; the subject is the call.
+msgid "hung up"
+msgstr "завершён вызывающим абонентом"
+
+msgid "identified users"
+msgstr "идентифицированные пользователи"
+
+msgid "install python3-pynput for system-wide shortcuts"
+msgstr "установите python3-pynput для глобальных горячих клавиш"
+
+#, python-brace-format
+msgid "message of the day: {0}"
+msgstr "сообщение дня: {0}"
+
+#, python-brace-format
+msgid "microphone unavailable, you can listen but not talk: {0}"
+msgstr "микрофон недоступен, вы можете слушать, но не говорить: {0}"
+
+msgid "microphones:"
+msgstr "микрофоны:"
+
+msgid "no"
+msgstr "нет"
+
+msgid "no input"
+msgstr "нет входного сигнала"
+
+msgid "no path to server (is it running and announced?)"
+msgstr "нет маршрута к серверу (он запущен и отправил анонс в сеть?)"
+
+#, python-brace-format
+msgid "no such room {0!r}"
+msgstr "комната {0!r} не существует"
+
+#, python-brace-format
+msgid "no such room {0!r}; rooms: {1}"
+msgstr "комната {0!r} не существует; комнаты: {1}"
+
+#, python-brace-format
+msgid "no such user {0!r}"
+msgstr "пользователь {0!r} не существует"
+
+msgid "not in any room"
+msgstr "вы не вошли ни в одну комнату"
+
+#, python-brace-format
+msgid "now in room {0!r} ({1}{2})"
+msgstr "вы в комнате {0!r} ({1}{2})"
+
+msgid "open"
+msgstr "свободный доступ"
+
+msgid "password"
+msgstr "пароль"
+
+msgid "path unknown"
+msgstr "маршрут неизвестен"
+
+#, python-brace-format
+msgid "phone call from {0} {1}"
+msgstr "звонок от {0}: {1}"
+
+msgid "points"
+msgstr "пт"
+
+msgid "press a key or mouse button..."
+msgstr "нажмите клавишу или кнопку мыши..."
+
+msgid "restart Partyline"
+msgstr "перезапустите Partyline"
+
+msgid "restart the shared instance (rnsd)"
+msgstr "перезапустите общий экземпляр (rnsd)"
+
+#, python-brace-format
+msgid "room uses unknown profile {0!r}"
+msgstr "комната использует неизвестный профиль {0!r}"
+
+#, python-brace-format
+msgid "room {0!r} uses unknown profile {1!r}"
+msgstr "комната {0!r} использует неизвестный профиль {1!r}"
+
+#, python-brace-format
+msgid "room {0} was removed"
+msgstr "комната {0} удалена"
+
+msgid "server did not answer (not a room server, or an older version)"
+msgstr "сервер не ответил (это не сервер комнат или используется старая версия)"
+
+msgid "speakers:"
+msgstr "динамики:"
+
+msgid "start Reticulum again"
+msgstr "запустите Reticulum снова"
+
+msgid "still looking for a path to the server"
+msgstr "поиск маршрута к серверу продолжается"
+
+#, python-brace-format
+msgid "this server speaks Partyline protocol {0}, this client speaks {1}: {2}"
+msgstr "этот сервер использует протокол Partyline {0}, а клиент использует {1}: {2}"
+
+msgid "up"
+msgstr "активен"
+
+msgid "usage: /move USER ROOM"
+msgstr "использование: /move ПОЛЬЗОВАТЕЛЬ КОМНАТА"
+
+#, python-brace-format
+msgid "version {0}, protocol {1}"
+msgstr "версия {0}, протокол {1}"
+
+#. Button label shown while waiting for a shortcut key or mouse button.
+msgid "waiting"
+msgstr "ожидание"
+
+#. Call outcome appended to "Phone call from {0}"; the subject is the call.
+msgid "was answered"
+msgstr "принят"
+
+#. Call outcome appended to "Phone call from {0}"; the subject is the call.
+msgid "was not answered in time"
+msgstr "не принят вовремя"
+
+#. Call outcome appended to "Phone call from {0}"; the subject is the call.
+msgid "was turned away"
+msgstr "отклонён"
+
+msgid "yes"
+msgstr "да"
+
+#, python-brace-format
+msgid "you poked {0}: {1}"
+msgstr "вы привлекли внимание {0}: {1}"
+
+#, python-brace-format
+msgid "you: {0} hop"
+msgid_plural "you: {0} hops"
+msgstr[0] "вы: {0} переход"
+msgstr[1] "вы: {0} перехода"
+msgstr[2] "вы: {0} переходов"
+
+#, python-brace-format
+msgid "{0:+.0f} dB"
+msgstr "{0:+.0f} дБ"
+
+#, python-brace-format
+msgid "{0:+d} dB"
+msgstr "{0:+d} дБ"
+
+#, python-brace-format
+msgid "{0:.0f} dB"
+msgstr "{0:.0f} дБ"
+
+#, python-brace-format
+msgid "{0} asks for a password:"
+msgstr "{0} запрашивает пароль:"
+
+#, python-brace-format
+msgid "{0} can be called from rnphone: {1}"
+msgstr "На {0} можно позвонить из rnphone: {1}"
+
+#, python-brace-format
+msgid "{0} client"
+msgid_plural "{0} clients"
+msgstr[0] "{0} клиент"
+msgstr[1] "{0} клиента"
+msgstr[2] "{0} клиентов"
+
+#, python-brace-format
+msgid "{0} connected"
+msgstr "Пользователь {0} подключился"
+
+#, python-brace-format
+msgid "{0} could not be read: {1}"
+msgstr "Не удалось прочитать {0}: {1}"
+
+#, python-brace-format
+msgid "{0} disconnected"
+msgstr "Пользователь {0} отключился"
+
+#, python-brace-format
+msgid "{0} hop away"
+msgid_plural "{0} hops away"
+msgstr[0] "на расстоянии {0} перехода"
+msgstr[1] "на расстоянии {0} переходов"
+msgstr[2] "на расстоянии {0} переходов"
+
+#, python-brace-format
+msgid "{0} hop to server"
+msgid_plural "{0} hops to server"
+msgstr[0] "{0} переход до сервера"
+msgstr[1] "{0} перехода до сервера"
+msgstr[2] "{0} переходов до сервера"
+
+#, python-brace-format
+msgid "{0} in, {1} out"
+msgstr "{0} вх., {1} исх."
+
+#, python-brace-format
+msgid "{0} interface"
+msgid_plural "{0} interfaces"
+msgstr[0] "{0} интерфейс"
+msgstr[1] "{0} интерфейса"
+msgstr[2] "{0} интерфейсов"
+
+#, python-brace-format
+msgid "{0} is no longer an operator."
+msgstr "У {0} больше нет прав оператора."
+
+#, python-brace-format
+msgid "{0} is now an operator."
+msgstr "У {0} теперь есть права оператора."
+
+#, python-brace-format
+msgid "{0} moved to {1}"
+msgstr "Пользователь {0} перемещён в {1}"
+
+#, python-brace-format
+msgid "{0} ms"
+msgstr "{0} мс"
+
+#, python-brace-format
+msgid "{0} muted locally."
+msgstr "Звук от {0} отключён у вас."
+
+#, python-brace-format
+msgid "{0} other program"
+msgid_plural "{0} other programs"
+msgstr[0] "{0} другая программа"
+msgstr[1] "{0} другие программы"
+msgstr[2] "{0} других программ"
+
+#, python-brace-format
+msgid "{0} peer"
+msgid_plural "{0} peers"
+msgstr[0] "{0} узел"
+msgstr[1] "{0} узла"
+msgstr[2] "{0} узлов"
+
+#, python-brace-format
+msgid "{0} poked you"
+msgstr "{0} привлекает ваше внимание"
+
+#, python-brace-format
+msgid "{0} poked you: {1}"
+msgstr "{0} привлекает ваше внимание: {1}"
+
+#, python-brace-format
+msgid "{0} requested on {1}."
+msgstr "Запрошено действие {0} для {1}."
+
+#, python-brace-format
+msgid "{0} unmuted locally."
+msgstr "Звук от {0} включён у вас."
+
+msgid "   buffer {0:g} ms  ↑{1} ↓{2}"
+msgstr "   буфер {0:g} мс  ↑{1} ↓{2}"
+
+msgid "TX batch {0:g} ms / queued {1:g} ms   RX queued {2:g} ms"
+msgstr "Пакет TX {0:g} мс / в очереди {1:g} мс   RX в очереди {2:g} мс"
+
+msgid "Diagnostics..."
+msgstr "Диагностика..."
+
+msgid "For Android"
+msgstr "Для Android"
+
+msgid "System-wide shortcut"
+msgstr "Глобальная горячая клавиша"
+
+msgid "Applies after reconnecting."
+msgstr "Применяется после переподключения."
+
+msgid "Share with an operator for allow-list access."
+msgstr "Передайте оператору для добавления в список доступа."
+
+msgid "Copied"
+msgstr "Скопировано"
+
+msgid "Recording ready"
+msgstr "Запись готова"

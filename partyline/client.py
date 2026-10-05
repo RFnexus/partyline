@@ -18,6 +18,7 @@ from LXST.Sinks import LocalSink, LineSink
 from LXST.Sources import LocalSource, LineSource
 
 from .common import *
+from .i18n import _, N_, ngettext, install as install_language
 from .audio import *
 from .prefs import IDENTITY_FILE
 
@@ -27,6 +28,7 @@ WELCOME_TIMEOUT = 10.0  # seconds after link establishment to hear back from the
 
 PATH_WAIT = 20.0  # path request wait
 PATH_WAIT_MAX = 120.0
+ROOM_SPEC_WAIT = 120.0
 
 SAMPLE_RATE = 48000
 
@@ -51,24 +53,48 @@ class CountingPacketizer(Packetizer):
         self.pending = []
         self.pending_payload = 0
         self.pending_packed = 0
+        self._lock = threading.RLock()
+        self.sending_ms = 0
+        self.last_batch_ms = 0
+        self.last_send_ms = 0.0
+        self._publish_diagnostics()
         self.edge_guard = False  # preroll_ms guard
         self.preroll = collections.deque(maxlen=max(1, round(PTT_PREROLL_MS / max(1, self.frame_ms))))
+
+    def _publish_diagnostics(self):
+        self._diagnostics = {
+            "pending_ms": len(self.pending) * self.frame_ms,
+            "sending_ms": self.sending_ms,
+            "last_batch_ms": self.last_batch_ms,
+            "last_send_ms": round(self.last_send_ms, 1),
+        }
+
+    def diagnostics(self):
+        return dict(
+            self._diagnostics,
+            duration_limit_ms=self.target_count() * self.frame_ms,
+            fill_mtu=self.fill_mtu,
+            frame_ms=self.frame_ms,
+        )
 
     def link_ready(self):
         return type(self.destination) == RNS.Link and self.destination.status == RNS.Link.ACTIVE
 
     def squelch(self):
-        if not self.squelched and self.link_ready():
-            self.flush()
-            # tell the room the spurt is over so we don't conceal a pause from members
-            RNS.Packet(self.destination, msgpack.packb({FIELD_TALK_END: True}), create_receipt=False).send()
-        self.squelched = True
-        self.pending = []
-        self.pending_payload = 0
-        self.pending_packed = 0
+        with self._lock:
+            if not self.squelched and self.link_ready():
+                self.flush()
+                # tell the room the spurt is over so we don't conceal a pause from members
+                RNS.Packet(self.destination, msgpack.packb({FIELD_TALK_END: True}), create_receipt=False).send()
+            self.squelched = True
+            self.pending = []
+            self.pending_payload = 0
+            self.pending_packed = 0
+            self._publish_diagnostics()
 
     def unsquelch(self):
-        self.squelched = False  # the next captured frame (on the ingest thread) will replay the pre-roll first
+        with self._lock:
+            self.squelched = False  # the next captured frame (on the ingest thread) will replay the pre-roll first
 
     def start(self):
         if hasattr(Packetizer, "start"):
@@ -92,51 +118,67 @@ class CountingPacketizer(Packetizer):
         return min(MAX_BATCH, by_latency)
 
     def handle_frame(self, frame, source=None):
-        if not self.link_ready():
-            return
-        item = self.header + frame
-        if self.squelched:
-            if self.edge_guard:
-                self.preroll.append(item)  # hold the most recent frames while idle
-            return
-        if self.edge_guard and self.preroll:
-            buffered = list(self.preroll)
-            self.preroll.clear()
-            for old_item in buffered:
-                self._ingest(old_item, len(old_item) - 1)
-        self._ingest(item, len(frame))
+        with self._lock:
+            if not self.link_ready():
+                return
+            item = self.header + frame
+            if self.squelched:
+                if self.edge_guard:
+                    self.preroll.append(item)  # hold the most recent frames while idle
+                return
+            if self.edge_guard and self.preroll:
+                buffered = list(self.preroll)
+                self.preroll.clear()
+                for old_item in buffered:
+                    self._ingest(old_item, len(old_item) - 1)
+            self._ingest(item, len(frame))
 
     def _ingest(self, item, frame_length):
-        item_cost = len(item) + 3
-        if self.pending and BATCH_BASE_COST + self.pending_packed + item_cost > self.max_payload():
-            self.flush()
-        self.pending.append(item)
-        self.pending_packed += item_cost
-        self.pending_payload += frame_length
-        if len(self.pending) >= self.target_count():
-            self.flush()
+        with self._lock:
+            item_cost = len(item) + 3
+            if self.pending and BATCH_BASE_COST + self.pending_packed + item_cost > self.max_payload():
+                self.flush()
+            self.pending.append(item)
+            self.pending_packed += item_cost
+            self.pending_payload += frame_length
+            self._publish_diagnostics()
+            if len(self.pending) >= self.target_count():
+                self.flush()
 
     def flush(self):
-        if not self.pending or not self.link_ready():
+        with self._lock:
+            if not self.pending or not self.link_ready():
+                self.pending = []
+                self.pending_payload = 0
+                self.pending_packed = 0
+                self._publish_diagnostics()
+                return
+            base = (self.sequence + 1) & 0xFFFF
+            self.sequence = (self.sequence + len(self.pending)) & 0xFFFF
+            if len(self.pending) == 1:
+                payload = self.pending[0]
+            else:
+                payload = list(self.pending)
+            payload_bytes = self.pending_payload
+            batch_ms = len(self.pending) * self.frame_ms
             self.pending = []
             self.pending_payload = 0
             self.pending_packed = 0
-            return
-        base = (self.sequence + 1) & 0xFFFF
-        self.sequence = (self.sequence + len(self.pending)) & 0xFFFF
-        if len(self.pending) == 1:
-            payload = self.pending[0]
-        else:
-            payload = list(self.pending)
-        data = msgpack.packb({FIELD_FRAMES: payload, FIELD_SEQ: base})
-        packet = RNS.Packet(self.destination, data, create_receipt=False)
-        if packet.send() is not False:
-            self.packets += 1
-            self.bytes += len(packet.raw)
-            self.payload_bytes += self.pending_payload
-        self.pending = []
-        self.pending_payload = 0
-        self.pending_packed = 0
+            data = msgpack.packb({FIELD_FRAMES: payload, FIELD_SEQ: base})
+            packet = RNS.Packet(self.destination, data, create_receipt=False)
+            self.sending_ms = batch_ms
+            self._publish_diagnostics()
+            started = time.monotonic()
+            try:
+                if packet.send() is not False:
+                    self.packets += 1
+                    self.bytes += len(packet.raw)
+                    self.payload_bytes += payload_bytes
+                    self.last_batch_ms = batch_ms
+            finally:
+                self.last_send_ms = (time.monotonic() - started) * 1000
+                self.sending_ms = 0
+                self._publish_diagnostics()
 
 
 ### TESTING ###
@@ -313,14 +355,14 @@ class Channel:
     def requirements(self):
         parts = []
         if self.access & ACCESS_ALLOWLIST:
-            parts.append("allow list")
+            parts.append(_("allow list"))
         elif self.access & ACCESS_IDENTITY:
-            parts.append("identified users")
+            parts.append(_("identified users"))
         if self.access & ACCESS_PASSWORD:
-            parts.append("password")
-        text = ", ".join(parts) or "open"
+            parts.append(_("password"))
+        text = ", ".join(parts) or _("open")
         if self.broadcast:
-            text += ", listed speakers only"
+            text += _(", listed speakers only")
         return text
 
 
@@ -356,11 +398,10 @@ class User:
     def path_info(self):
         parts = []
         if self.hops is not None:
-            plural = "s" if self.hops != 1 else ""
-            parts.append(f"{self.hops} hop{plural} to server")
+            parts.append(ngettext("{0} hop to server", "{0} hops to server", self.hops).format(self.hops))
         if self.rtt is not None:
-            parts.append(f"RTT {self.rtt} ms")
-        return ", ".join(parts) or "path unknown"
+            parts.append(_("RTT {0} ms").format(self.rtt))
+        return ", ".join(parts) or _("path unknown")
 
 
 class Config:
@@ -407,6 +448,7 @@ class Client:
         self.server_name = None
         self.server_version = None
         self.motd = ""
+        self.pending_calls = {}
         self.my_sid = None
         self.my_room = None
         self.can_speak_here = True
@@ -437,7 +479,10 @@ class Client:
         # state and shuffles frames, so all packet handling goes through one worker, in arrival order.
         self.inbox = queue.Queue()
         self._reorder = {}
-        threading.Thread(target=self._rx_worker, daemon=True).start()
+        self._rx_lock = threading.Lock()
+        self._rx_stop = threading.Event()
+        self._rx_stop.set()
+        self._rx_thread = None
 
         self.ptt_down = False
         self.muted = False
@@ -449,6 +494,7 @@ class Client:
         self.started_at = None
         self.rx_packets = 0
         self.rx_bytes = 0
+        self.late_packets = 0
         self.bad_frames = 0
         self.dropped = 0
         self.tx_packets = 0  # folded in from each packetizer when audio stops
@@ -465,6 +511,7 @@ class Client:
         self._want_room = None
         self._want_password = None
         self._server_password = None
+        self._room_spec_until = 0.0
 
     def event(self, *event):
         self.events.append(event)
@@ -480,6 +527,7 @@ class Client:
 
     ### CONNECTION ###
     def connect(self, destination_hash, room=None, password=None, server_password=None, timeout=20):
+        self._start_rx_worker()
         self.state = "connecting"
         self.error = None
         self.server_hash = destination_hash
@@ -489,7 +537,7 @@ class Client:
         if self.cfg.text_only:
             self.muted = True
             self.deaf = True
-        threading.Thread(target=self._connect, args=(destination_hash, timeout), daemon=True).start()
+        threading.Thread(target=self._connect, args=(destination_hash, timeout, self._rx_stop), daemon=True).start()
 
     def path_wait_seconds(self):
         try:
@@ -498,20 +546,25 @@ class Client:
             medium = 0
         return min(PATH_WAIT_MAX, max(PATH_WAIT, 6 * medium))
 
-    def _connect(self, destination_hash, timeout):
+    def _connect(self, destination_hash, timeout, stopped):
+        if stopped.is_set():
+            return
         if not RNS.Transport.has_path(destination_hash):
             RNS.Transport.request_path(destination_hash)
             wait = max(timeout, self.path_wait_seconds())
             started = time.time()
             reminded = False
             while not RNS.Transport.has_path(destination_hash) and time.time() - started < wait:
-                time.sleep(0.2)
+                if stopped.wait(0.2):
+                    return
                 if not reminded and time.time() - started > wait / 3:
                     reminded = True
-                    self.event("info", "still looking for a path to the server")
+                    self.event("info", _("still looking for a path to the server"))
+        if stopped.is_set():
+            return
         identity = RNS.Identity.recall(destination_hash)
         if identity is None:
-            self.fail("no path to server (is it running and announced?)")
+            self.fail(_("no path to server (is it running and announced?)"))
             return
         try:
             self.hops = RNS.Transport.hops_to(destination_hash)
@@ -521,8 +574,14 @@ class Client:
         self.link = RNS.Link(destination, established_callback=self.established, closed_callback=self.closed)
         # set before establishment so the server's first packet is not missed
         self.link.set_packet_callback(self.packet)
+        self.link.set_resource_strategy(RNS.Link.ACCEPT_APP)
+        self.link.set_resource_callback(self.accept_resource)
+        self.link.set_resource_concluded_callback(self.resource_concluded)
 
     def established(self, link):
+        if self._rx_stop.is_set():
+            link.teardown()
+            return
         link.identify(self.identity)
         self.state = "waiting for server"
         rtt = None
@@ -553,10 +612,11 @@ class Client:
 
     def welcome_timeout(self):
         if self.state == "waiting for server":
-            self.fail("server did not answer (not a room server, or an older version)")
+            self.fail(_("server did not answer (not a room server, or an older version)"))
             self.disconnect()
 
     def fail(self, message):
+        self._stop_rx_worker()
         self.error = message
         self.state = "idle"
         self.event("error", message)
@@ -565,11 +625,13 @@ class Client:
         if self.state == "closed":
             return
         self.state = "closed"
+        self._stop_rx_worker()
         self.stop_audio()
         self.event("closed", self.error or "link closed by server")
         RNS.log("Server link closed", RNS.LOG_NOTICE)
 
     def disconnect(self):
+        self._stop_rx_worker()
         self.stop_audio()
         if self.link and self.link.status == RNS.Link.ACTIVE:
             self.link.teardown()
@@ -580,21 +642,59 @@ class Client:
     def connected(self):
         return self.state == "connected"
 
-    def packet(self, data, packet):
-        self.inbox.put((data, packet))
+    def _start_rx_worker(self):
+        self._stop_rx_worker()
+        with self._rx_lock:
+            self.inbox = queue.Queue()
+            self._rx_stop = threading.Event()
+            self._rx_thread = threading.Thread(target=self._rx_worker, args=(self.inbox, self._rx_stop), daemon=True)
+            self._rx_thread.start()
 
-    def _rx_worker(self):
-        while True:
-            try:
-                item = self.inbox.get(timeout=0.02)
-            except queue.Empty:
-                item = None
-            if item is not None:
+    def _stop_rx_worker(self):
+        with self._rx_lock:
+            self._rx_stop.set()
+            self.inbox.put(None)
+            worker = self._rx_thread
+        if worker is not None and worker is not threading.current_thread():
+            worker.join()
+
+    def packet(self, data, packet):
+        with self._rx_lock:
+            if not self._rx_stop.is_set():
+                self.inbox.put((data, packet))
+
+    def accept_resource(self, advertisement):
+        return time.monotonic() < self._room_spec_until and advertisement.get_data_size() <= MAX_CONFIG_BYTES
+
+    def resource_concluded(self, resource):
+        if resource.status != RNS.Resource.COMPLETE:
+            return
+        data = resource.data.read(MAX_CONFIG_BYTES + 1)
+        if len(data) <= MAX_CONFIG_BYTES:
+            self.packet(data, None)
+
+    def _rx_worker(self, inbox, stopped):
+        try:
+            while not stopped.is_set():
                 try:
-                    self._handle_packet(*item)
-                except Exception as error:
-                    RNS.log(f"Receive error: {error}", RNS.LOG_ERROR)
-            self._release_pending()
+                    item = inbox.get(timeout=0.02)
+                except queue.Empty:
+                    item = None
+                if stopped.is_set():
+                    break
+                if item is not None:
+                    try:
+                        self._handle_packet(*item)
+                    except Exception as error:
+                        RNS.log(f"Receive error: {error}", RNS.LOG_ERROR)
+                if not stopped.is_set():
+                    self._release_pending()
+        finally:
+            while True:
+                try:
+                    inbox.get_nowait()
+                except queue.Empty:
+                    break
 
     def _audio(self, member_id, frame, sequence):
         if sequence is None:
@@ -616,7 +716,7 @@ class Client:
 
     def _drain_pending(self, member_id, reorder):
         while reorder["next"] in reorder["pending"]:
-            frame, _ = reorder["pending"].pop(reorder["next"])
+            frame, arrived = reorder["pending"].pop(reorder["next"])
             self.handle_frame(member_id, frame, reorder["next"])
             reorder["next"] = (reorder["next"] + 1) & 0xFFFF
 
@@ -636,6 +736,10 @@ class Client:
     def _handle_packet(self, data, packet):
         fields = msgpack.unpackb(data)
         if type(fields) is not dict:
+            return
+        if packet is None:
+            if FIELD_CONFIG in fields:
+                self.config_record(fields[FIELD_CONFIG])
             return
         if FIELD_WELCOME in fields:
             self.welcome(fields[FIELD_WELCOME])
@@ -669,7 +773,17 @@ class Client:
             self.event("text", self.users.get(member_id), clean_text(text, MAX_TEXT))
         if FIELD_POKE in fields:
             member_id, text = fields[FIELD_POKE]
-            self.event("poke", self.users.get(member_id), clean_text(text, MAX_TEXT))
+            if member_id not in self.local_muted:
+                self.event("poke", self.users.get(member_id), clean_text(text, MAX_TEXT))
+        if FIELD_DIALIN in fields:
+            self.dialin_record(fields[FIELD_DIALIN])
+        if FIELD_CONFIG in fields:
+            self.config_record(fields[FIELD_CONFIG])
+        if FIELD_CHANNEL_GONE in fields:
+            room_id = fields[FIELD_CHANNEL_GONE]
+            channel = self.channels.pop(room_id, None) if isinstance(room_id, int) else None
+            if channel:
+                self.event("channel_gone", channel)
         if FIELD_TALK_END in fields and self.playout:
             member_id = fields[FIELD_TALK_END]
             if isinstance(member_id, int):
@@ -683,6 +797,10 @@ class Client:
             sequence = fields.get(FIELD_SEQ)
             if not isinstance(sequence, int) or not 0 <= sequence <= 0xFFFF:
                 sequence = None
+            expected = self._reorder.get(member_id, {}).get("next")
+            # #
+            if sequence is not None and expected is not None and ((sequence - expected) & 0xFFFF) > 0x8000:
+                self.late_packets += 1
             batch = payload if isinstance(payload, list) else [payload]
             for offset, frame in enumerate(batch[:MAX_BATCH]):
                 if self.cfg.rx_loss and random.random() < self.cfg.rx_loss:
@@ -694,6 +812,29 @@ class Client:
                 else:
                     self._audio(member_id, frame, seq)
 
+    def dialin_record(self, record):
+        try:
+            event, identity_hex = record[0], record[1]
+        except Exception:
+            return
+        if not (isinstance(identity_hex, str) and len(identity_hex) == 32):
+            return
+        if event == "waiting":
+            self.pending_calls[identity_hex] = time.time()
+            self.event("call_waiting", identity_hex)
+        elif self.pending_calls.pop(identity_hex, None) is not None:
+            self.event("call_done", identity_hex, clean_text(str(event), 16))
+
+    def config_record(self, record):
+        try:
+            action = record[0]
+        except Exception:
+            return
+        if action == CONFIG_MOTD and len(record) > 1:
+            self.motd = clean_text(record[1], MAX_TEXT)
+            self.event("motd", self.motd)
+        elif action == CONFIG_ROOM and len(record) > 2 and isinstance(record[1], int) and isinstance(record[2], dict):
+            self.event("room_spec", record[1], record[2])
     def welcome(self, welcome):
         server_protocol = welcome.get("ver")
         if server_protocol != PROTOCOL_VERSION:
@@ -703,7 +844,7 @@ class Client:
             else:
                 advice = "please update"
             self.fail(
-                f"this server speaks Partyline protocol {server_protocol}, this client speaks {PROTOCOL_VERSION}: {advice}"
+                _("this server speaks Partyline protocol {0}, this client speaks {1}: {2}").format(server_protocol, PROTOCOL_VERSION, advice)
             )
             self.disconnect()
             return
@@ -725,7 +866,7 @@ class Client:
         ptt_jitter_ms = max(0, min(MAX_JITTER_MS, ptt_jitter_ms))
         flags = record[8] if len(record) > 8 and isinstance(record[8], int) else 0
         if profile not in PROFILES:
-            self.event("error", f"room {name!r} uses unknown profile {profile!r}")
+            self.event("error", _("room {0!r} uses unknown profile {1!r}").format(name, profile))
             return
         if not (isinstance(dialin_number, str) and len(dialin_number) == 32):
             dialin_number = None
@@ -802,7 +943,7 @@ class Client:
             self.event("room", None)
             return
         if profile not in PROFILES:
-            self.fail(f"room uses unknown profile {profile!r}")
+            self.fail(_("room uses unknown profile {0!r}").format(profile))
             return
         channel = self.channels.get(self.my_room)
         self.ptt_room = bool(channel and channel.ptt)
@@ -881,6 +1022,16 @@ class Client:
         if self.link and self.link.status == RNS.Link.ACTIVE:
             RNS.Packet(self.link, msgpack.packb(fields), create_receipt=False).send()
 
+    def send_large(self, fields):
+        link = self.link
+        if link is None or link.status != RNS.Link.ACTIVE:
+            return
+        data = msgpack.packb(fields)
+        if len(data) <= (link.get_mdu() or RNS.Link.MDU):
+            RNS.Packet(link, data, create_receipt=False).send()
+        else:
+            RNS.Resource(data, link)
+
     def move(self, room_id, password=None):
         if self.connected:
             self.send({FIELD_MOVE: [int(room_id), password]})
@@ -920,6 +1071,20 @@ class Client:
             raise ValueError(action)
         if self.connected:
             self.send({FIELD_ADMIN: [action, int(member_id), argument]})
+
+    def dialin(self, action, argument=None):
+        if action not in DIALIN_ACTIONS:
+            raise ValueError(action)
+        if self.connected:
+            self.send({FIELD_DIALIN: [action, argument]})
+
+    def configure_server(self, action, payload=None):
+        if action not in CONFIG_ACTIONS:
+            raise ValueError(action)
+        if self.connected:
+            if action == CONFIG_ROOM_GET:
+                self._room_spec_until = time.monotonic() + ROOM_SPEC_WAIT
+            self.send_large({FIELD_CONFIG: [action, payload]})
 
     def send_text(self, text):
         text = clean_text(text, MAX_TEXT)
@@ -965,7 +1130,7 @@ class Client:
         except Exception as error:
             RNS.log(f"Could not set up audio {error}", RNS.LOG_ERROR)
             self.stop_audio()
-            self.event("error", f"audio setup failed: {error}")
+            self.event("error", _("audio setup failed: {0}").format(error))
 
     def _build_audio(self, profile, frame_ms_value):
         self.audio_profile = profile
@@ -990,6 +1155,22 @@ class Client:
         self.packetizer = CountingPacketizer(self.link, profile, self.cfg.frames_per_packet, self.cfg.fill_mtu, fill_max)
         if self.cfg.listen:
             return
+        try:
+            self._build_transmit(profile, frame_ms_value)
+        except Exception as error:
+            RNS.log(f"Could not set up the microphone: {error}", RNS.LOG_ERROR)
+            if self.tx_pipe:
+                try:
+                    self.tx_pipe.stop()
+                except Exception:
+                    pass
+            self.tx_pipe = None
+            self.gate = None
+            self.conditioner = None
+            self.event("error", _("microphone unavailable, you can listen but not talk: {0}").format(error))
+        self.apply_mode()
+
+    def _build_transmit(self, profile, frame_ms_value):
         self.gate = VoiceGate(self.packetizer, self.cfg.vad_db, self.cfg.vad_hang)
         self.conditioner = MicConditioner(self.cfg.tx_gain_db, self.cfg.mic_agc)
         if self.cfg.tone:
@@ -1002,7 +1183,6 @@ class Client:
         self.tx_pipe = Pipeline(source=source, codec=gated_codec(profile, self.gate, self.conditioner), sink=self.packetizer)
         self.packetizer.start()
         self.tx_pipe.start()
-        self.apply_mode()
 
     def jitter_frames(self, frame_ms_value):
         return max(1, math.ceil(self.cfg.jitter_ms / frame_ms_value))
@@ -1159,12 +1339,12 @@ class Client:
         mode = self.cfg.mode
         self.packetizer.edge_guard = (mode == "ptt")
         if self.gate:
-            self.gate.enabled = (mode == "vox") and not self.muted
+            self.gate.enabled = (mode == "vox") and not self.muted and self.can_speak_here
         if self.cfg.tone:
             mode = "open"  # tone has no gate to drive
         elif self.cfg.wav and mode == "ptt":
             mode = "open"  # a file has nobody to press the key; vox still gates its silences
-        if self.muted or not self.can_speak_here:
+        if self.muted or not self.can_speak_here or not self.tx_pipe:
             self.packetizer.squelch()
         elif mode == "open" or (mode == "ptt" and self.ptt_down):
             self.packetizer.unsquelch()
@@ -1330,7 +1510,7 @@ def describe_event(client, event):
     kind = event[0]
     if kind == "connected":
         motd = f": {client.motd}" if client.motd else ""
-        return f"connected to {client.server_name!r}{motd}"
+        return _("connected to {0!r}{1}").format(client.server_name, motd)
     if kind == "room":
         channel = client.channels.get(event[1])
         if channel:
@@ -1339,43 +1519,54 @@ def describe_event(client, event):
                 extras += f", push-to-talk slow mode with a {channel.ptt_jitter_ms / 1000:g} s buffer"
             if not client.can_speak_here:
                 extras += ", listen only"
-            return f"now in room {channel.name!r} ({describe(channel.profile)}{extras})"
-        return "not in any room"
+            return _("now in room {0!r} ({1}{2})").format(channel.name, describe(channel.profile), extras)
+        return _("not in any room")
     if kind == "denied":
         channel = client.channels.get(event[1])
         where = f" for {channel.name!r}" if channel else ""
-        return f"denied{where}: {event[2]}"
+        return _("denied{0}: {1}").format(where, event[2])
     if kind == "notice":
         return f"*** {event[1]}"
     if kind == "info":
         return f"... {event[1]}"
     if kind == "version":
-        return f"*** the server runs Partyline {event[1]}, you run {APP_VERSION}: please update so both match"
+        return _("*** the server runs Partyline {0}, you run {1}: please update so both match").format(event[1], APP_VERSION)
     if kind == "user_joined":
         if event[1].sid == client.my_sid:
             return None
-        return f"{event[1].name} connected"
+        return _("{0} connected").format(event[1].name)
     if kind == "user_left":
-        return f"{event[1].name} disconnected"
+        return _("{0} disconnected").format(event[1].name)
+    if kind == "call_waiting":
+        return _("*** phone call from {0} is waiting: /answer {1} or /reject {2}").format(event[1], event[1][:8], event[1][:8])
+    if kind == "call_done":
+        return _("phone call from {0} {1}").format(event[1][:8], _(CALL_OUTCOMES.get(event[2], event[2])))
+    if kind == "motd":
+        return _("message of the day: {0}").format(event[1])
+    if kind == "channel_gone":
+        return _("room {0} was removed").format(event[1].name)
     if kind == "user_moved":
         channel = client.channels.get(event[1].room)
         room_name = channel.name if channel else "no room"
-        return f"{event[1].name} moved to {room_name}"
+        return _("{0} moved to {1}").format(event[1].name, room_name)
     if kind == "text":
         return f"<{getattr(event[1], 'name', '?')}> {event[2]}"
     if kind == "poke":
-        return f"*** {getattr(event[1], 'name', '?')} poked you: {event[2]}"
+        return _("*** {0} poked you: {1}").format(getattr(event[1], 'name', '?'), event[2])
     if kind == "poked":
-        return f"you poked {getattr(event[1], 'name', '?')}: {event[2]}"
+        return _("you poked {0}: {1}").format(getattr(event[1], 'name', '?'), event[2])
     if kind in ("error", "closed"):
         return f"{kind}: {event[1]}"
     return None
 
 
-COMMAND_HELP = (
+COMMAND_HELP = N_(
     "commands: /join ROOM [PASSWORD], /say TEXT, /poke USER TEXT, /who, /mute, /unmute, /deaf, /undeaf, /ptt, "
-    "/kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, /quit"
+    "/kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, "
+    "/answer CALL, /reject CALL, /pair HASH, /unpair HASH, /phones, /motd TEXT, /roomadd NAME[:PROFILE], /roomdel ROOM, /quit"
 )
+DIALIN_COMMANDS = {"/answer": DIALIN_ANSWER, "/reject": DIALIN_REJECT, "/pair": DIALIN_ADD, "/unpair": DIALIN_REMOVE}
+CALL_OUTCOMES = {"answered": N_("was answered"), "rejected": N_("was turned away"), "timeout": N_("was not answered in time"), "gone": N_("hung up")}
 ADMIN_COMMANDS = {
     "/kick": ADMIN_KICK,
     "/ban": ADMIN_BAN,
@@ -1395,24 +1586,24 @@ def stdin_commands(client, stop):
         line = line.strip()
         if not line:
             continue
-        command, _, rest = line.partition(" ")
+        command, separator, rest = line.partition(" ")
         if command == "/join":
-            room_name, _, password = rest.partition(" ")
+            room_name, separator, password = rest.partition(" ")
             channel = client.find_channel(room_name)
             if channel:
                 client.move(channel.id, password or None)
             else:
                 room_names = ", ".join(channel.name for channel in client.channels.values())
-                print(f"no such room {room_name!r}; rooms: {room_names}", flush=True)
+                print(_("no such room {0!r}; rooms: {1}").format(room_name, room_names), flush=True)
         elif command == "/say":
             client.send_text(rest)
         elif command == "/poke":
-            user_name, _, text = rest.partition(" ")
+            user_name, separator, text = rest.partition(" ")
             user = client.find_user(user_name)
             if user:
                 client.poke(user.sid, text)
             else:
-                print(f"no such user {user_name!r}", flush=True)
+                print(_("no such user {0!r}").format(user_name), flush=True)
         elif command == "/who":
             for user in client.users.values():
                 flags = []
@@ -1427,15 +1618,30 @@ def stdin_commands(client, stop):
             if user:
                 client.admin(ADMIN_COMMANDS[command], user.sid)
             else:
-                print(f"no such user {rest!r}", flush=True)
+                print(_("no such user {0!r}").format(rest), flush=True)
         elif command == "/move":
-            user_name, _, room_name = rest.partition(" ")
+            user_name, separator, room_name = rest.partition(" ")
             user = client.find_user(user_name)
             channel = client.find_channel(room_name)
             if user and channel:
                 client.admin(ADMIN_MOVE, user.sid, channel.id)
             else:
-                print("usage: /move USER ROOM", flush=True)
+                print(_("usage: /move USER ROOM"), flush=True)
+        elif command in DIALIN_COMMANDS:
+            client.dialin(DIALIN_COMMANDS[command], rest)
+        elif command == "/phones":
+            client.dialin(DIALIN_LIST)
+        elif command == "/motd":
+            client.configure_server(CONFIG_MOTD, rest)
+        elif command == "/roomadd":
+            name, separator, profile = rest.partition(":")
+            client.configure_server(CONFIG_ROOM_ADD, {"name": name.strip(), "profile": profile.strip() or None})
+        elif command == "/roomdel":
+            channel = client.find_channel(rest)
+            if channel:
+                client.configure_server(CONFIG_ROOM_REMOVE, channel.id)
+            else:
+                print(_("no such room {0!r}").format(rest), flush=True)
         elif command == "/mute":
             client.set_muted(True)
         elif command == "/unmute":
@@ -1446,12 +1652,12 @@ def stdin_commands(client, stop):
             client.set_deaf(False)
         elif command == "/ptt":
             client.set_transmit(not client.ptt_down)
-            print("TX ON" if client.ptt_down else "TX off", flush=True)
+            print(("TX ON" if client.ptt_down else _("TX off")), flush=True)
         elif command == "/quit":
             stop.set()
             return
         elif command.startswith("/"):
-            print(COMMAND_HELP, flush=True)
+            print(_(COMMAND_HELP), flush=True)
         else:
             client.send_text(line)
 
@@ -1480,13 +1686,14 @@ def main():
     parser.add_argument("--force-frame-ms", type=int, default=None)
     parser.add_argument("--duration", type=float, default=0, help="seconds to run (0 = until Ctrl-C or /quit)")
     args = parser.parse_args()
+    install_language()
 
     if args.list_devices:
         microphones, speakers = audio_devices()
-        print("microphones:")
+        print(_("microphones:"))
         for name in microphones:
             print("  ", name)
-        print("speakers:")
+        print(_("speakers:"))
         for name in speakers:
             print("  ", name)
         return
@@ -1504,7 +1711,7 @@ def main():
 
     tune_gc()
 
-    print(f"Our identity hash: {identity.hash.hex()}", flush=True)
+    print(_("Our identity hash: {0}").format(identity.hash.hex()), flush=True)
 
     client = Client(config_from_args(args), identity, args.name or default_name(identity))
     client.connect(server_hash, room=args.room, password=args.password, server_password=args.server_password)

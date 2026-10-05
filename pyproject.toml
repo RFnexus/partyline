@@ -11,8 +11,8 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dynamic = ["version"]
 dependencies = [
-    "rns>=1.4",
-    "lxst>=0.5",
+    "rns>=1.5",
+    "lxst>0.5",
     "numpy",
 ]
 classifiers = [

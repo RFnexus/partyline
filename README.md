@@ -16,6 +16,21 @@ A group voice application for Reticulum, built on [LXST](https://github.com/mark
 - GUI and terminal client with multiple language support
 
 ## Installation
+Requires Python 3.11 or newer
+
+    pip install partyline
+
+For a system wide push to talk key, add the optional extra:
+
+    pip install "partyline[hotkeys]"
+
+The graphical client uses Tk, which pip cannot install. On most OS/Distros it may already be installed by your system. If not:
+
+On Debian or Ubuntu run
+`sudo apt install python3-tk`, on Fedora `sudo dnf install python3-tkinter`. 
+
+### Installing from source
+
 Requires Python 3.11 or newer, Reticulum, and LXST
 
     git clone https://github.com/RFnexus/partyline

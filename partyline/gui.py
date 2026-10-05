@@ -1315,7 +1315,8 @@ class RoomDialog(Dialog):
         self.profile_var = tk.StringVar(value=str(spec.get("profile") or (channel.profile if channel else "opus-med")))
         self.description_var = tk.StringVar(value=str(spec.get("description") or ""))
         self.password_var = tk.StringVar(value=str(spec.get("password") or ""))
-        self.identity_var = tk.BooleanVar(value=bool(spec.get("require_identity", False)))
+        identified = bool(channel.access & ACCESS_IDENTITY) if channel else True
+        self.identity_var = tk.BooleanVar(value=bool(spec.get("require_identity", identified)))
         self.max_var = tk.StringVar(value=str(spec.get("max_members") or ""))
         self.ptt_var = tk.BooleanVar(value=bool(spec.get("ptt", "ptt_jitter_ms" in spec)))
         self.jitter_var = tk.StringVar(value=str(spec.get("ptt_jitter_ms") or PTT_JITTER_MS))
@@ -2142,7 +2143,7 @@ class App:
 
     def show_reticulum_status(self, status):
         self.menubar.entryconfigure("Reticulum", image=self.rns_icon(status.level))
-        if self.rns_shown is None or self.rns_shown.key != status.key:
+        if self.rns_shown is None or self.rns_shown.level != status.level:
             self.log(_("Reticulum: {0}.").format(status.text), "err" if status.level == reticulum.OFFLINE else "sys")
         self.rns_shown = status
 

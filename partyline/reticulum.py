@@ -93,10 +93,6 @@ class Status:
     text: str
     interfaces: list = field(default_factory=list)
 
-    @property
-    def key(self):
-        return (self.level, self.text)
-
 
 PLURALS = {
     "interface": (N_("{0} interface"), N_("{0} interfaces")),

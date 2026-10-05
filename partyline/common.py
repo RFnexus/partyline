@@ -1,5 +1,6 @@
 import os
 import re
+import stat
 import sys
 import unicodedata
 
@@ -319,6 +320,20 @@ def load_hash_list(hashes=(), path=None):
                 if without_comment.strip():
                     lines.append(without_comment)
     return {parse_hash(line) for line in lines}
+
+
+def write_file(path, text, mode=None):
+    if mode is None:
+        try:
+            mode = stat.S_IMODE(os.stat(path).st_mode)
+        except OSError:
+            mode = 0o600
+    temporary_path = path + ".tmp"
+    descriptor = os.open(temporary_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(descriptor, "w") as output:
+        os.chmod(temporary_path, mode)
+        output.write(text)
+    os.replace(temporary_path, path)
 
 
 def save_hash_list(path, hashes):

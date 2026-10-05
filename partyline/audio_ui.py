@@ -305,6 +305,9 @@ class AudioSetupDialog(tk.Toplevel):
     def save(self):
         if self.test.busy:
             return
+        if not self.app.confirm_continuous(self, self.mode_var.get()):
+            self.mode_var.set(self.app.settings["mode"])
+            return
         self.app.settings.update(
             input=None if self.input_var.get() == self.default_device else self.input_var.get(),
             output=None if self.output_var.get() == self.default_device else self.output_var.get(),

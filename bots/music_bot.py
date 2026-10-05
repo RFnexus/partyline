@@ -23,7 +23,8 @@ import time
 import numpy as np
 import RNS
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+if not __package__:
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from partyline.client import Client, Config
 from partyline.common import CONFIG_DIR, load_identity, make_codec, parse_hash

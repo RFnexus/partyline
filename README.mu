@@ -176,7 +176,7 @@ Server operators can configure broadcast-only rooms for high quality music and a
 {"name": "Broadcast", "profile": "music-med", "music": ["0123456789abcdef0123456789abcdef"], "description": "Music/broadcast room. Only listed identities may talk."}
 `=
 
-An example music bot can be found under bots/music_bot.py.
+An example music bot can be found under bots/music_bot.py. When Partyline is installed with pip, run it with python3 -m partyline.bots.music_bot
 
 >Credits
 • `F44f`_`[Reticulum`https://github.com/markqvist/Reticulum]`_`f and `F44f`_`[LXST`https://github.com/markqvist/lxst]`_`f by Mark Qvist

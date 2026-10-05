@@ -20,6 +20,7 @@ TEXT_RATE = 4.0         # text messages per second per member
 CONTROL_RATE = 6.0      # membership and mute/deafen changes per second limit
 DENY_CLOSE_DELAY = 0.5  # grace to let the FIELD_DENIED packet leave before tearing the link down 
 MAX_PENDING_LINKS = 16
+MAX_LINK_RTT = 5.0
 PASSWORD_FREE_TRIES = 2
 PASSWORD_BACKOFF = 2.0
 PASSWORD_BACKOFF_MAX = 300.0
@@ -33,6 +34,10 @@ SAVED_CONFIG_FILENAME = "server.json"
 
 # kept for older imports
 load_allow_list = load_hash_list
+
+
+def capped_rtt(link):
+    return min(MAX_LINK_RTT, getattr(link, "rtt", None) or 0.0)
 
 
 def same_password(given, expected):
@@ -386,11 +391,7 @@ class Server:
             waiting = [member for member in self.members.values() if not member.admitted]
             if len(waiting) >= MAX_PENDING_LINKS:
                 idle = [member for member in waiting if not member.hello_started]
-                if not idle:
-                    RNS.log("Too many links are waiting to join, refusing link", RNS.LOG_NOTICE)
-                    self.deny_and_close(link, None, "server is busy, try again shortly")
-                    return
-                oldest = min(idle, key=lambda member: member.joined_at)
+                oldest = min(idle or waiting, key=lambda member: member.joined_at)
                 RNS.log(f"member {oldest.member_id} dropped to make room for a new link", RNS.LOG_NOTICE)
                 self.evict(oldest)
             member = Member(link, self.next_member_id)
@@ -448,6 +449,8 @@ class Server:
 
     def hello(self, member, fields):
         if not isinstance(fields, dict):
+            RNS.log(f"member {member.member_id} sent a malformed hello, dropping", RNS.LOG_NOTICE)
+            self.evict(member)
             return
         wanted_room = fields.get("room")
         password = fields.get("password")
@@ -462,12 +465,13 @@ class Server:
             or not self.admits_guests()
             or (room is not None and (room.access & ACCESS_IDENTITY or room.password))
         )
-        link_rtt = getattr(member.link, "rtt", None) or 0.0
-        deadline = time.time() + max(IDENTITY_GRACE, 4 * link_rtt)  
+        deadline = time.time() + max(IDENTITY_GRACE, 4 * capped_rtt(member.link))
 
 
 
         while needs_identity and member.identity is None and time.time() < deadline:
+            if member.link.status != RNS.Link.ACTIVE:
+                return
             time.sleep(0.05)
             if member.link.get_remote_identity():
                 member.identity = member.link.get_remote_identity()
@@ -719,8 +723,7 @@ class Server:
 
     def deny_and_close(self, link, room_id, reason):
         self.send(link, {FIELD_DENIED: [room_id, reason]})
-        link_rtt = getattr(link, "rtt", None) or 0.0
-        threading.Timer(max(DENY_CLOSE_DELAY, 2 * link_rtt), link.teardown).start()  # let the reason arrive first
+        threading.Timer(max(DENY_CLOSE_DELAY, 2 * capped_rtt(link)), link.teardown).start()  # let the reason arrive first
 
     def find_room(self, key):
         if isinstance(key, int):
@@ -1224,11 +1227,7 @@ class Server:
                 config = {}
             config["motd"] = self.motd
             config["rooms"] = [self.rooms[room_id].spec for room_id in sorted(self.rooms)]
-            temporary = path + ".tmp"
-            with open(temporary, "w") as config_file:
-                json.dump(config, config_file, indent=2)
-                config_file.write("\n")
-            os.replace(temporary, path)
+            write_file(path, json.dumps(config, indent=2) + "\n")
         except (OSError, ValueError) as error:
             RNS.log(f"Could not save the server configuration to {path}: {error}", RNS.LOG_ERROR)
 

@@ -51,6 +51,13 @@ CHAT_ONLY_WARNING = N_(
     "Connect chat-only?\n\nYou will not be able to talk or hear anyone. Only the chat window works. "
     "Use this on very slow links where voice cannot get through."
 )
+CONTINUOUS_WARNING = N_(
+    "Continuous keeps your microphone open the whole time you are in a room.\n\n"
+    "• Everyone in the room hears your background noise, even when you are not speaking.\n"
+    "• It sends audio constantly, which uses a lot of bandwidth on slow links.\n"
+    "• After a network hiccup, others may hear you with a delay that only clears when you mute or pause.\n\n"
+    "Push To Talk or Voice Activity works better for most people. Use Continuous anyway?"
+)
 
 PALETTES = {
     "light": {
@@ -996,6 +1003,9 @@ class SettingsDialog(Dialog):
 
     def apply(self):
         settings = self.app.settings
+        if not self.app.confirm_continuous(self, self.mode_var.get()):
+            self.mode_var.set(settings["mode"])
+            return False
         input_name = self.input_var.get()
         output_name = self.output_var.get()
         settings.update(
@@ -1025,7 +1035,8 @@ class SettingsDialog(Dialog):
         self.app.apply_settings()
 
     def ok(self):
-        self.apply()
+        if self.apply() is False:
+            return
         self.app.hotkeys.capture = False
         self.destroy()
 
@@ -2457,33 +2468,57 @@ class App:
             "• It works best when one person talks at a time.\n\n"
             "Join this room?"
         )
-        dialog = tk.Toplevel(self.root)
-        dialog.title(_("Push-to-talk room"))
-        dialog.transient(self.root)
-        dialog.resizable(False, False)
-        ttk.Label(dialog, text=message, justify="left", wraplength=380).grid(
-            row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(16, 12)
+        return self.confirm_notice(self.root, _("Push-to-talk room"), message, _("Join"), "hide_ptt_notice")
+
+    def confirm_continuous(self, parent, mode):
+        if mode != "open" or self.settings["mode"] == "open" or self.settings["hide_continuous_notice"]:
+            return True
+        return self.confirm_notice(
+            parent,
+            _("Continuous transmit"),
+            _(CONTINUOUS_WARNING),
+            _("Use Continuous"),
+            "hide_continuous_notice",
+            warning=True,
         )
+
+    def warning_icon(self, parent):
+        try:
+            return ttk.Label(parent, image="::tk::icons::warning")
+        except tk.TclError:
+            return tk.Label(parent, bitmap="warning", bg=self.palette["bg"], fg=self.palette["fg"])
+
+    def confirm_notice(self, parent, title, message, accept_text, hide_key, warning=False):
+        previous_grab = parent.grab_current()
+        dialog = tk.Toplevel(parent)
+        dialog.title(title)
+        dialog.transient(parent)
+        dialog.resizable(False, False)
+        body = ttk.Frame(dialog)
+        body.grid(row=0, column=0, columnspan=2, sticky="w", padx=16, pady=(16, 12))
+        if warning:
+            self.warning_icon(body).pack(side="left", anchor="n", padx=(0, 12))
+        ttk.Label(body, text=message, justify="left", wraplength=380).pack(side="left")
         hide_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(dialog, text=_("Don't show this again"), variable=hide_var).grid(
             row=1, column=0, columnspan=2, sticky="w", padx=16, pady=(0, 8)
         )
-        choice = {"join": False}
+        choice = {"accepted": False}
 
-        def join():
-            choice["join"] = True
+        def accept():
+            choice["accepted"] = True
             if hide_var.get():
-                self.settings["hide_ptt_notice"] = True
+                self.settings[hide_key] = True
                 self.settings.save()
             dialog.destroy()
 
-        join_button = ttk.Button(dialog, text=_("Join"), command=join)
-        join_button.grid(row=2, column=0, sticky="e", padx=(0, 8), pady=(0, 16))
+        accept_button = ttk.Button(dialog, text=accept_text, command=accept)
+        accept_button.grid(row=2, column=0, sticky="e", padx=(0, 8), pady=(0, 16))
         ttk.Button(dialog, text=_("Cancel"), command=dialog.destroy).grid(
             row=2, column=1, sticky="w", padx=(0, 16), pady=(0, 16)
         )
         dialog.columnconfigure(0, weight=1)
-        dialog.bind("<Return>", lambda event: join())
+        dialog.bind("<Return>", lambda event: accept())
         dialog.bind("<Escape>", lambda event: dialog.destroy())
 
 
@@ -2493,14 +2528,16 @@ class App:
                 dialog.grab_set()
                 dialog.lift()
                 dialog.focus_force()
-                join_button.focus_set()
+                accept_button.focus_set()
             except tk.TclError:
                 pass
 
         dialog.update_idletasks()
         dialog.after(30, arm)
-        self.root.wait_window(dialog)
-        return choice["join"]
+        parent.wait_window(dialog)
+        if previous_grab is not None and previous_grab.winfo_exists():
+            previous_grab.grab_set()
+        return choice["accepted"]
 
     def join_room(self, room_id):
         client = self.client

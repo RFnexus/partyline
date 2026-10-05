@@ -112,7 +112,7 @@ Server operators can also configure broadcast-only rooms for high quality music 
 ```
 <img width="1181" height="648" alt="Screenshot from 2026-09-05 17-07-35" src="https://github.com/user-attachments/assets/f124833b-cb31-453f-a91f-9e61a171624c" />
 
-An example Music Bot can be found under `bots/music_bot.py`
+An example Music Bot can be found under `bots/music_bot.py`. When Partyline is installed with pip, run it with `python3 -m partyline.bots.music_bot`
 
 ### Push to talk (slow link) Rooms
 PTT, or slow-mode rooms, are rooms designed to work over slower links like LoRa, bare copper wire bitbashing, and packet radio. Anything with more than a steady ~3.5 kbps throughput can use a PTT room. They can co-exist with regular rooms in a Partyline server, allowing both fast and slow clients to communicate over voice. 

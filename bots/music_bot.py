@@ -8,6 +8,7 @@
     or pass --stream (link to .m3u or live mp3)
     !play [N]  !pause  !resume  !skip  !stop  !list  !np  !loop  !stream URL  !help
     options: --ops-only to allow only operators to interact with the bot 
+             --public-stream to let anyone use !stream URL, which is operators only by default
 """
 import argparse
 import glob
@@ -473,7 +474,7 @@ class MusicPlayer:
             time.sleep(max(0.0, next_frame_at - now))
 
 
-def handle_command(client, player, prefix, text, sender=None, ops_only=False):
+def handle_command(client, player, prefix, text, sender=None, ops_only=False, public_stream=False):
     if not text.startswith(prefix):
         return
     body = text[len(prefix) :].strip()
@@ -495,13 +496,16 @@ def handle_command(client, player, prefix, text, sender=None, ops_only=False):
         if not rest:
             client.send_text(player.now_playing() if player.stream_url else f"usage: {prefix}stream URL")
             return
+        if not public_stream and not getattr(sender, "operator", False):
+            client.send_text("only operators can start a stream")
+            return
         message = player.start_stream(rest.split()[0])
         if message:
             client.send_text(message)
     elif name == "play":
         index = None
         if rest:
-            if not rest.isdigit() or not 1 <= int(rest) <= len(player.tracks):
+            if not rest.isdecimal() or not 1 <= int(rest) <= len(player.tracks):
                 client.send_text(f"pick a track 1-{len(player.tracks)}")
                 return
             index = int(rest) - 1
@@ -547,6 +551,9 @@ def main():
     parser.add_argument("--gain", type=float, default=1.0, help="volume multiplier applied before encoding")
     parser.add_argument("--autoplay", action="store_true", help="start playing as soon as the bot joins")
     parser.add_argument("--ops-only", action="store_true", help="take commands from server operators only")
+    parser.add_argument(
+        "--public-stream", action="store_true", help="let anyone start a stream with the stream command, not only operators"
+    )
     parser.add_argument(
         "--always-transmit", action="store_true", help="keep sending audio when nobody in the room can hear it"
     )
@@ -615,7 +622,7 @@ def main():
                     elif kind == "text":
                         sender = event[1]
                         if getattr(sender, "sid", None) != client.my_sid:
-                            handle_command(client, player, args.prefix, event[2], sender, args.ops_only)
+                            handle_command(client, player, args.prefix, event[2], sender, args.ops_only, args.public_stream)
                     elif kind == "denied":
                         print(f"denied: {event[2]}", flush=True)
                     elif kind in ("error", "closed"):

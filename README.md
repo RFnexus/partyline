@@ -8,12 +8,12 @@ A group voice application for Reticulum, built on [LXST](https://github.com/mark
 <img width="1915" height="1007" alt="Screenshot from 2026-09-04 07-05-40" src="https://github.com/user-attachments/assets/bb9c689b-2344-4627-a640-192582575b45" />
 
 ## Features
-- Encrypted, realtime group voice over any Reticulum transport capable of >6 kilobits per second
+- Encrypted, realtime group voice and audio over any Reticulum transport capable of >6 kilobits per second
 - An easy to host lightweight server and protocol. Spin up a Partyline server in under 30 seconds. 
 - Per room access and channel control. open, identified users only, allow lists of identity hashes, or a password. Servers can also require a password or an allow list
 - Dial-in: rnphone and other LXST clients such as Sideband and MeshChatX can call the server and land in a room too, when enabled
 - Rooms each with its own LXST codec configurable by the server. Opus for fast links, Codec2 down to 700 bps for slow ones.
-- GUI and terminal client
+- GUI and terminal client with multiple language support
 
 ## Installation
 Requires Python 3.11 or newer, Reticulum, and LXST
@@ -44,7 +44,7 @@ Connect opens the server browser. Add a server by it's hash or use the server br
 <img width="1914" height="1006" alt="Screenshot from 2026-09-04 07-06-15" src="https://github.com/user-attachments/assets/1372962a-fcf9-421e-829c-2a1426a66cb5" />
 
 
-Terminal client:
+### Terminal client
 
     partyline-client HASH --name Bob --room Lobby
 
@@ -124,6 +124,23 @@ Mark any room push to talk with `"ptt": true`. Optionally set `"ptt_jitter_ms"` 
 {"name": "LoRa 1200", "profile": "c2-1200", "ptt": true, "description": "Slow-link push to talk"}
 {"name": "Packet Radio Net 700",  "profile": "c2-700",  "ptt": true, "ptt_jitter_ms": 9000}
 ```
+
+### LLM Disclosure Notice 
+
+Kimi K3 (https://www.kimi.com/en) third party hosted API was used for the following tasks:
+- I18N localization and UI `gettext()` implementation
+- Translation of UI elements and of eo, es, nl, and ru PO files
+- Misc debugging and creation of `rnsconfig.py` RNS helper utilities
+
+### UI Translation
+
+The .po files are located in `partyline/locale/`
+
+To update a translation, change the `msgstr` line under its English `msgid` 
+
+To add a language, copy `partyline.pot` to a new `.po` file and add it to `LANGUAGES` in `partyline/i18n.py`. 
+
+Run `python partyline/locale/compile.py`, then open a pull request with your changes or submit it to the LXMF address: 
 
 ### Credits
 - [Reticulum](https://github.com/markqvist/Reticulum) and [LXST](https://github.com/markqvist/lxst) by Mark Qvist

@@ -16,7 +16,7 @@
 
   "_comment_dialin_": "Answer rnphone calls to this server's identity hash and put callers in a room.",
   "dialin": {"enabled": false, "room": "Lobby", "name": "phone", "allow": [], "gate_db": -50},
-
+  
   "_comment_profiles_": "Codec profiles are: opus-high, opus-med, opus-low, c2-3200, c2-2400, c2-1200, c2-700, music-low, music-med, music-high",
 
   "rooms": [

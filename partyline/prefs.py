@@ -40,7 +40,9 @@ DEFAULTS = {
     "sash": None,         # divider between chat and tree, in pixels from the left
     "theme": "light",     # light | dark
     "font_size": 10,      # text size in pt
+    "language": "",
     "debug_stats": False, # show bitrates and loss counters in the status bar
+    "edit_rns_config": False,
 
     "sfx": False,         # master switch for sound effects
     "sfx_join": True,     # per event switches

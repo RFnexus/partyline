@@ -1,9 +1,12 @@
 import os
 import re
 import sys
+import unicodedata
 
 import RNS
 from RNS.vendor import umsgpack as msgpack
+
+from .i18n import _, N_
 import LXST.Codecs
 from LXST.Codecs import Opus, Codec2
 
@@ -67,6 +70,9 @@ FIELD_SEQ = 0x10        # 16-bit frame counter of the senderr
 FIELD_ADMIN = 0x11      # client -> server (operators only): [action, target_member_id, argument]
 FIELD_NOTICE = 0x12     # server -> client: a message for the user, e.g. "you were muted by an operator"
 FIELD_TALK_END = 0x13   # client -> server: True when push-to-talk or the voice gate closes; server -> room: member_id
+FIELD_DIALIN = 0x14
+FIELD_CONFIG = 0x15
+FIELD_CHANNEL_GONE = 0x16
 
 
 # FIELD_CHANNEL access flags. 0 means anyone who can reach the server can enter
@@ -94,8 +100,27 @@ ADMIN_DEOP = "deop"
 ADMIN_MOVE = "move"  
 ADMIN_ACTIONS = (ADMIN_KICK, ADMIN_BAN, ADMIN_MUTE, ADMIN_UNMUTE, ADMIN_OP, ADMIN_DEOP, ADMIN_MOVE)
 
+DIALIN_ANSWER = "answer"
+DIALIN_REJECT = "reject"
+DIALIN_ADD = "add"
+DIALIN_REMOVE = "remove"
+DIALIN_LIST = "list"
+DIALIN_ACTIONS = (DIALIN_ANSWER, DIALIN_REJECT, DIALIN_ADD, DIALIN_REMOVE, DIALIN_LIST)
+
+CONFIG_MOTD = "motd"
+CONFIG_ROOM = "room"
+CONFIG_ROOM_GET = "room_get"
+CONFIG_ROOM_ADD = "room_add"
+CONFIG_ROOM_EDIT = "room_edit"
+CONFIG_ROOM_REMOVE = "room_remove"
+CONFIG_ACTIONS = (CONFIG_MOTD, CONFIG_ROOM_GET, CONFIG_ROOM_ADD, CONFIG_ROOM_EDIT, CONFIG_ROOM_REMOVE)
+ROOM_SPEC_KEYS = ("name", "profile", "description", "password", "require_identity", "max_members", "ptt", "ptt_jitter_ms", "allow", "music")
+MAX_ROOMS = 64
+MAX_ROOM_MEMBERS = 1000
+
 MAX_FRAME_BYTES = 400
 MAX_BATCH = 64
+MAX_CONFIG_BYTES = 65536
 
 # join sync record batching for room and membership lists
 SYNC_BASE = 5
@@ -118,17 +143,28 @@ MAX_LOCALE = 16
 
 # codec class, codec argument, frame ms, description
 PROFILES = {
-    "opus-high": (Opus, Opus.PROFILE_VOICE_HIGH, 20, "Opus 16 kbps, 20 ms frames"),
-    "opus-med": (Opus, Opus.PROFILE_VOICE_MEDIUM, 60, "Opus 8 kbps, 60 ms frames"),
-    "opus-low": (Opus, Opus.PROFILE_VOICE_LOW, 60, "Opus 6 kbps, 60 ms frames"),
-    "c2-3200": (Codec2, Codec2.CODEC2_3200, 200, "Codec2 3200 bps, 200 ms frames"),
-    "c2-2400": (Codec2, Codec2.CODEC2_2400, 200, "Codec2 2400 bps, 200 ms frames"),
-    "c2-1200": (Codec2, Codec2.CODEC2_1200, 400, "Codec2 1200 bps, 400 ms frames"),
-    "c2-700": (Codec2, Codec2.CODEC2_700C, 400, "Codec2 700 bps, 400 ms frames"),
-    "music-low": (Opus, Opus.PROFILE_AUDIO_LOW, 40, "Opus music 14 kbps, 40 ms frames"),
-    "music-med": (Opus, Opus.PROFILE_AUDIO_MEDIUM, 40, "Opus music 28 kbps, 40 ms frames"),
-    "music-high": (Opus, Opus.PROFILE_AUDIO_HIGH, 40, "Opus music 56 kbps, 40 ms frames"),
+    "opus-high": (Opus, Opus.PROFILE_VOICE_HIGH, 20, N_("Opus 16 kbps, 20 ms frames")),
+    "opus-med": (Opus, Opus.PROFILE_VOICE_MEDIUM, 60, N_("Opus 8 kbps, 60 ms frames")),
+    "opus-low": (Opus, Opus.PROFILE_VOICE_LOW, 60, N_("Opus 6 kbps, 60 ms frames")),
+    "c2-3200": (Codec2, Codec2.CODEC2_3200, 200, N_("Codec2 3200 bps, 200 ms frames")),
+    "c2-2400": (Codec2, Codec2.CODEC2_2400, 200, N_("Codec2 2400 bps, 200 ms frames")),
+    "c2-1200": (Codec2, Codec2.CODEC2_1200, 400, N_("Codec2 1200 bps, 400 ms frames")),
+    "c2-700": (Codec2, Codec2.CODEC2_700C, 400, N_("Codec2 700 bps, 400 ms frames")),
+    "music-low": (Opus, Opus.PROFILE_AUDIO_LOW, 40, N_("Opus music 14 kbps, 40 ms frames")),
+    "music-med": (Opus, Opus.PROFILE_AUDIO_MEDIUM, 40, N_("Opus music 28 kbps, 40 ms frames")),
+    "music-high": (Opus, Opus.PROFILE_AUDIO_HIGH, 40, N_("Opus music 56 kbps, 40 ms frames")),
 }
+
+
+def frame_limit(profile_name):
+    codec_class, codec_argument, frame_ms_value = PROFILES[profile_name][:3]
+    if codec_class is Opus:
+        ceiling = Opus.profile_bitrate_ceiling(codec_argument)
+        return min(MAX_FRAME_BYTES, 1 + Opus.max_bytes_per_frame(ceiling, frame_ms_value))
+    return MAX_FRAME_BYTES
+
+
+FRAME_LIMITS = {profile_name: frame_limit(profile_name) for profile_name in PROFILES}
 
 
 def record_batch(value):
@@ -138,7 +174,7 @@ def record_batch(value):
 
 
 def make_codec(profile_name):
-    codec_class, codec_argument, _, _ = PROFILES[profile_name]
+    codec_class, codec_argument = PROFILES[profile_name][:2]
     return codec_class(codec_argument)
 
 
@@ -154,7 +190,7 @@ def frame_ms(profile_name):
 
 def describe(profile_name):
     if profile_name in PROFILES:
-        return PROFILES[profile_name][3]
+        return _(PROFILES[profile_name][3])
     return str(profile_name)
 
 
@@ -214,14 +250,16 @@ def frame_duration_ms(frame):
 def valid_frame(frame, profile_name):
     if type(frame) is not bytes:
         return False
-    if not 2 <= len(frame) <= MAX_FRAME_BYTES:
+    if not 2 <= len(frame) <= FRAME_LIMITS[profile_name]:
         return False
     if frame[0:1] != codec_byte(profile_name):
         return False
     return frame_duration_ms(frame) == frame_ms(profile_name)
 
 
-_unprintable = re.compile(r"[\x00-\x1f\x7f-\x9f\u00a0\u2007\u202f]")
+_unprintable = re.compile(
+    r"[\x00-\x1f\x7f-\x9f\u00a0\u00ad\u061c\u115f\u1160\u180e\u2007\u200b\u200e\u200f\u202a-\u202f\u2060-\u206f\u2800\u3164\ufeff\uffa0]"
+)
 
 
 def clean_text(text, limit, fallback=""):
@@ -242,6 +280,11 @@ def text_bytes(text):
 
 def clean_name(name, fallback):
     return clean_text(name, MAX_NAME, fallback)
+
+
+def name_key(name):
+    folded = unicodedata.normalize("NFKC", name).casefold()
+    return "".join(character for character in folded if unicodedata.category(character) != "Cf")
 
 
 def parse_hash(text):

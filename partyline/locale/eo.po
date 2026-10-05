@@ -1,0 +1,988 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: partyline 1.0.0\n"
+"PO-Revision-Date: 2026-09-11 00:00+0000\n"
+"Last-Translator: Partyline translations table\n"
+"Language-Team: eo\n"
+"Language: eo\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "(system default)"
+msgstr "(sistema defaŭlto)"
+
+msgid "*** phone call from {0} is waiting: /answer {1} or /reject {2}"
+msgstr "*** telefonvoko de {0} atendas: /answer {1} aŭ /reject {2}"
+
+msgid "*** the server runs Partyline {0}, you run {1}: please update so both match"
+msgstr "*** la servilo uzas Partyline {0}, vi uzas {1}: bonvolu ĝisdatigi por ke ambaŭ kongruu"
+
+msgid "*** {0} poked you: {1}"
+msgstr "*** {0} puŝetis vin: {1}"
+
+msgid ", alongside {0}"
+msgstr ", kune kun {0}"
+
+msgid ", listed speakers only"
+msgstr ", nur listigitaj parolantoj"
+
+msgid ", running as the shared instance"
+msgstr ", funkcias kiel la komuna instanco"
+
+msgid ", serving {0}"
+msgstr ", servas {0}"
+
+msgid ", transport enabled"
+msgstr ", transporto ŝaltita"
+
+msgid "A group voice application for Reticulum, built on LXST"
+msgstr "Grupa voĉaplikaĵo por Reticulum, konstruita sur LXST"
+
+msgid "About"
+msgstr "Pri"
+
+msgid "Access"
+msgstr "Aliro"
+
+msgid "Add"
+msgstr "Aldoni"
+
+msgid "Add Interface"
+msgstr "Aldoni interfacon"
+
+msgid "Add New..."
+msgstr "Aldoni novan..."
+
+msgid "Add Room"
+msgstr "Aldoni ĉambron"
+
+msgid "Add Server"
+msgstr "Aldoni servilon"
+
+msgid "Add to Favorites"
+msgstr "Aldoni al preferataj"
+
+msgid "Add..."
+msgstr "Aldoni..."
+
+msgid "Address"
+msgstr "Adreso"
+
+msgid "Address {0}"
+msgstr "Adreso {0}"
+
+msgid "Address {0}, {1}, {2} users"
+msgstr "Adreso {0}, {1}, {2} uzantoj"
+
+msgid "Advanced settings"
+msgstr "Progresintaj agordoj"
+
+msgid "Allow list, one identity hash per line (blank for everyone)"
+msgstr "Permesolisto, unu identeca haketo po linio (malplena por ĉiuj)"
+
+msgid "Announces in/out"
+msgstr "Anoncoj en/el"
+
+msgid "Answer phone call {0}..."
+msgstr "Respondi telefonvokon {0}..."
+
+msgid "Appearance and Language"
+msgstr "Aspekto kaj lingvo"
+
+msgid "Apply"
+msgstr "Apliki"
+
+msgid "Attempting to reconnect in {0} s (attempt {1}). Disconnect to stop."
+msgstr "Provo rekonekti post {0} s (provo {1}). Malkonektu por ĉesi."
+
+msgid "Audio"
+msgstr "Sono"
+
+msgid "Audio Input"
+msgstr "Sona enigo"
+
+msgid "Audio Output"
+msgstr "Sona eligo"
+
+msgid "Automatic gain control (AGC)"
+msgstr "Aŭtomata amplifa regado (AGC)"
+
+msgid "Ban"
+msgstr "Forbari"
+
+msgid "Ban {0}?"
+msgstr "Ĉu forbari {0}?"
+
+msgid "Bitrate"
+msgstr "Bitrapido"
+
+msgid "Broadcast room: only these speakers may talk, one hash per line"
+msgstr "Elsenda ĉambro: nur ĉi tiuj parolantoj rajtas paroli, unu haketo po linio"
+
+msgid "Cancel"
+msgstr "Nuligi"
+
+msgid "Cannot join {0}: {1}"
+msgstr "Ne eblas aliĝi al {0}: {1}"
+
+msgid "Chat only"
+msgstr "Nur babilo"
+
+msgid "Chat-only"
+msgstr "Nur babilo"
+
+msgid "Check the numbers and identity hashes: {0}"
+msgstr "Kontrolu la nombrojn kaj identecajn haketojn: {0}"
+
+msgid "Checking..."
+msgstr "Kontrolas..."
+
+msgid "Clear"
+msgstr "Forviŝi"
+
+msgid "Close"
+msgstr "Fermi"
+
+msgid "Codec2 1200 bps, 400 ms frames"
+msgstr "Codec2 1200 bps, 400 ms kadroj"
+
+msgid "Codec2 2400 bps, 200 ms frames"
+msgstr "Codec2 2400 bps, 200 ms kadroj"
+
+msgid "Codec2 3200 bps, 200 ms frames"
+msgstr "Codec2 3200 bps, 200 ms kadroj"
+
+msgid "Codec2 700 bps, 400 ms frames"
+msgstr "Codec2 700 bps, 400 ms kadroj"
+
+msgid "Commands: /join ROOM [PASSWORD], /say TEXT, /poke USER TEXT, /who, /mute, /unmute, /deaf, /undeaf, /kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, /answer CALL, /reject CALL, /pair HASH, /unpair HASH, /phones, /motd TEXT, /roomadd NAME[:PROFILE], /roomdel ROOM"
+msgstr "Komandoj: /join ĈAMBRO [PASVORTO], /say TEKSTO, /poke UZANTO TEKSTO, /who, /mute, /unmute, /deaf, /undeaf, /kick UZANTO, /ban UZANTO, /smute UZANTO, /sunmute UZANTO, /op UZANTO, /deop UZANTO, /move UZANTO ĈAMBRO, /answer VOKO, /reject VOKO, /pair HAKETO, /unpair HAKETO, /phones, /motd TEKSTO, /roomadd NOMO[:PROFILO], /roomdel ĈAMBRO"
+
+msgid "Configuration"
+msgstr "Agordo"
+
+msgid "Configuration file: {0}"
+msgstr "Agorda dosiero: {0}"
+
+msgid "Configure"
+msgstr "Agordi"
+
+msgid "Connect"
+msgstr "Konekti"
+
+msgid "Connect chat-only?\n\nYou will not be able to talk or hear anyone. Only the chat window works. Use this on very slow links where voice cannot get through."
+msgstr "Konekti nur per babilo?\n\nVi ne povos paroli nek aŭdi iun. Nur la babilfenestro funkcias. Uzu tion ĉe tre malrapidaj ligoj, kie voĉo ne trapasas."
+
+msgid "Connect to Server"
+msgstr "Konekti al servilo"
+
+msgid "Connect..."
+msgstr "Konekti..."
+
+msgid "Connected to the shared Reticulum instance (rnsd). Restart it after changing interfaces."
+msgstr "Konektita al la komuna Reticulum-instanco (rnsd). Restartigu ĝin post ŝanĝo de interfacoj."
+
+msgid "Connected to {0}{1}"
+msgstr "Konektita al {0}{1}"
+
+msgid "Connected to {0}{1}.{2}"
+msgstr "Konektita al {0}{1}.{2}"
+
+msgid "Connecting chat-only to {0} ({1}...) as {2}"
+msgstr "Konektas nur per babilo al {0} ({1}...) kiel {2}"
+
+msgid "Connecting to {0} ({1}...) as {2}"
+msgstr "Konektas al {0} ({1}...) kiel {2}"
+
+msgid "Connection lost, attempting to reconnect in {0} s (attempt {1})"
+msgstr "Konekto perdita, provo rekonekti post {0} s (provo {1})"
+
+msgid "Connection lost: {0}"
+msgstr "Konekto perdita: {0}"
+
+msgid "Continuous"
+msgstr "Kontinua"
+
+msgid "Copy"
+msgstr "Kopii"
+
+msgid "Copy address"
+msgstr "Kopii adreson"
+
+msgid "Copy dial-in number"
+msgstr "Kopii envokan numeron"
+
+msgid "Copy identity hash"
+msgstr "Kopii identecan haketon"
+
+msgid "Could not write {0}: {1}"
+msgstr "Ne eblis skribi {0}: {1}"
+
+msgid "Dark Mode"
+msgstr "Malhela reĝimo"
+
+msgid "Dark mode"
+msgstr "Malhela reĝimo"
+
+msgid "Deafen"
+msgstr "Surdigi"
+
+msgid "Deafen Self"
+msgstr "Surdigi min"
+
+msgid "Deafened (and muted)."
+msgstr "Surdigita (kaj silentigita)."
+
+msgid "Details..."
+msgstr "Detaloj..."
+
+msgid "Device"
+msgstr "Aparato"
+
+msgid "Dial-in number: {0}"
+msgstr "Envoka numero: {0}"
+
+msgid "Disable"
+msgstr "Malŝalti"
+
+msgid "Disconnect"
+msgstr "Malkonekti"
+
+msgid "Disconnected from the server"
+msgstr "Malkonektita de la servilo"
+
+msgid "Disconnected."
+msgstr "Malkonektita."
+
+msgid "Discovered ({0})"
+msgstr "Trovitaj ({0})"
+
+msgid "Display debug stats (bitrates and loss counters in the status bar)"
+msgstr "Montri sencimigajn statistikojn (bitrapidoj kaj perdo-nombriloj en la statobreto)"
+
+msgid "Display name"
+msgstr "Montrata nomo"
+
+msgid "Don't show this again"
+msgstr "Ne montru tion denove"
+
+msgid "Edit Interface: {0}"
+msgstr "Redakti interfacon: {0}"
+
+msgid "Edit Room..."
+msgstr "Redakti ĉambron..."
+
+msgid "Edit Room: {0}"
+msgstr "Redakti ĉambron: {0}"
+
+msgid "Edit Server"
+msgstr "Redakti servilon"
+
+msgid "Edit..."
+msgstr "Redakti..."
+
+msgid "Enable"
+msgstr "Ŝalti"
+
+msgid "Enable max jitter buffer"
+msgstr "Ŝalti maksimuman ĵiterbufron"
+
+msgid "Enabled"
+msgstr "Ŝaltita"
+
+msgid "Favorites"
+msgstr "Preferataj"
+
+msgid "Fill the link MTU"
+msgstr "Plenigi la MTU de la ligo"
+
+msgid "Filter"
+msgstr "Filtrilo"
+
+msgid "Frames per packet"
+msgstr "Kadroj po pakaĵo"
+
+msgid "Give the custom interface a type name."
+msgstr "Donu tipnomon al la propra interfaco."
+
+msgid "Give the interface a name."
+msgstr "Donu nomon al la interfaco."
+
+msgid "Give the room a name."
+msgstr "Donu nomon al la ĉambro."
+
+msgid "Hang time"
+msgstr "Postdaŭro"
+
+msgid "Help"
+msgstr "Helpo"
+
+msgid "Hey!"
+msgstr "He!"
+
+msgid "Identified users only"
+msgstr "Nur identigitaj uzantoj"
+
+msgid "Identity hash"
+msgstr "Identeca haketo"
+
+msgid "Identity hash of the phone (32 hex characters):"
+msgstr "Identeca haketo de la telefono (32 deksesumaj signoj):"
+
+msgid "Input level"
+msgstr "Eniga nivelo"
+
+msgid "Interface"
+msgstr "Interfaco"
+
+msgid "Interface: {0}"
+msgstr "Interfaco: {0}"
+
+msgid "Interfaces..."
+msgstr "Interfacoj..."
+
+msgid "Jitter buffer"
+msgstr "Ĵiterbufro"
+
+msgid "Join"
+msgstr "Aliĝi"
+
+msgid "Join Room"
+msgstr "Aliĝi al ĉambro"
+
+msgid "Join a room to chat."
+msgstr "Aliĝu al ĉambro por babili."
+
+msgid "Kick"
+msgstr "Forpeli"
+
+msgid "Kick {0}?"
+msgstr "Ĉu forpeli {0}?"
+
+msgid "Language"
+msgstr "Lingvo"
+
+msgid "List paired phones"
+msgstr "Listigi parigitajn telefonojn"
+
+msgid "Listen only"
+msgstr "Nur aŭskulti"
+
+msgid "Local Volume: {0}"
+msgstr "Loka laŭteco: {0}"
+
+msgid "Make Operator"
+msgstr "Fari operatoro"
+
+msgid "Message of the day"
+msgstr "Mesaĝo de la tago"
+
+msgid "Message of the day: {0}"
+msgstr "Mesaĝo de la tago: {0}"
+
+msgid "Message to {0}:"
+msgstr "Mesaĝo al {0}:"
+
+msgid "Microphone"
+msgstr "Mikrofono"
+
+msgid "More options"
+msgstr "Pliaj opcioj"
+
+msgid "Move to"
+msgstr "Movi al"
+
+msgid "Mute"
+msgstr "Silentigi"
+
+msgid "Mute Locally"
+msgstr "Silentigi loke"
+
+msgid "Mute Self"
+msgstr "Silentigi min"
+
+msgid "Muted."
+msgstr "Silentigita."
+
+msgid "Muting and deafening"
+msgstr "Silentigo kaj surdigo"
+
+msgid "Name"
+msgstr "Nomo"
+
+msgid "No interface sections found. Each interface needs a [[Name]] line followed by its settings."
+msgstr "Neniu interfaca sekcio trovita. Ĉiu interfaco bezonas linion [[Nomo]] sekvatan de siaj agordoj."
+
+msgid "Not connected"
+msgstr "Ne konektita"
+
+msgid "Not connected."
+msgstr "Ne konektita."
+
+msgid "Not in any room: double-click a room to join it."
+msgstr "En neniu ĉambro: duoble alklaku ĉambron por aliĝi."
+
+msgid "Offline, no interfaces configured"
+msgstr "Eksterrete, neniu interfaco agordita"
+
+msgid "Offline, no interfaces up (0 of {0})"
+msgstr "Eksterrete, neniu interfaco aktiva (0 el {0})"
+
+msgid "Offline, the shared instance has no interfaces configured"
+msgstr "Eksterrete, la komuna instanco havas neniun agorditan interfacon"
+
+msgid "Offline, the shared instance has no interfaces up (0 of {0})"
+msgstr "Eksterrete, la komuna instanco havas neniun aktivan interfacon (0 el {0})"
+
+msgid "Offline, {0}"
+msgstr "Eksterrete, {0}"
+
+msgid "Online through the shared instance, {0} of {1} up"
+msgstr "Enrete per la komuna instanco, {0} el {1} aktivaj"
+
+msgid "Online, {0} of {1} up"
+msgstr "Enrete, {0} el {1} aktivaj"
+
+msgid "Only modify these settings if you know what you are doing"
+msgstr "Ŝanĝu ĉi tiujn agordojn nur se vi scias, kion vi faras"
+
+msgid "Only operators can change server settings."
+msgstr "Nur operatoroj povas ŝanĝi servilajn agordojn."
+
+msgid "Operator actions"
+msgstr "Operatoraj agoj"
+
+msgid "Opus 16 kbps, 20 ms frames"
+msgstr "Opus 16 kbps, 20 ms kadroj"
+
+msgid "Opus 6 kbps, 60 ms frames"
+msgstr "Opus 6 kbps, 60 ms kadroj"
+
+msgid "Opus 8 kbps, 60 ms frames"
+msgstr "Opus 8 kbps, 60 ms kadroj"
+
+msgid "Opus music 14 kbps, 40 ms frames"
+msgstr "Opus muziko 14 kbps, 40 ms kadroj"
+
+msgid "Opus music 28 kbps, 40 ms frames"
+msgstr "Opus muziko 28 kbps, 40 ms kadroj"
+
+msgid "Opus music 56 kbps, 40 ms frames"
+msgstr "Opus muziko 56 kbps, 40 ms kadroj"
+
+msgid "Other (custom type)"
+msgstr "Alia (propra tipo)"
+
+msgid "Other settings (key = value per line, sub-interfaces as [[[Name]]] sections)"
+msgstr "Aliaj agordoj (ŝlosilo = valoro po linio, subinterfacoj kiel sekcioj [[[Nomo]]])"
+
+msgid "Other settings could not be read: {0}"
+msgstr "Aliaj agordoj ne legeblis: {0}"
+
+msgid "Our identity hash: {0}"
+msgstr "Nia identeca haketo: {0}"
+
+msgid "Pair a phone"
+msgstr "Parigi telefonon"
+
+msgid "Pair a phone..."
+msgstr "Parigi telefonon..."
+
+msgid "Partyline is about to change the Reticulum configuration file\n\n{path}\n\nComments and other settings in the file are kept, a copy of the original is saved next to it as config.bak, and changes take effect when Reticulum restarts. Allow Partyline to edit this file? This is asked only once."
+msgstr "Partyline tuj ŝanĝos la agordan dosieron de Reticulum\n\n{path}\n\nKomentoj kaj aliaj agordoj en la dosiero restas, kopio de la originalo estas konservata apud ĝi kiel config.bak, kaj ŝanĝoj efektiviĝas kiam Reticulum restartas. Ĉu permesi al Partyline redakti ĉi tiun dosieron? Tio estas demandata nur unufoje."
+
+msgid "Partyline runs its own Reticulum instance. Restart Partyline after changing interfaces."
+msgstr "Partyline uzas propran Reticulum-instancon. Restartigu Partyline post ŝanĝo de interfacoj."
+
+msgid "Password for {0}:"
+msgstr "Pasvorto por {0}:"
+
+msgid "Paste Interface"
+msgstr "Alglui interfacon"
+
+msgid "Paste one or more interface sections as they appear in the Reticulum config file, for example:"
+msgstr "Algluu unu aŭ plurajn interfacajn sekciojn kiel ili aperas en la agorda dosiero de Reticulum, ekzemple:"
+
+msgid "Paste..."
+msgstr "Alglui..."
+
+msgid "Phone call from {0} is waiting. Right-click the room to answer it, or type /answer {1}."
+msgstr "Telefonvoko de {0} atendas. Dekstre alklaku la ĉambron por respondi, aŭ tajpu /answer {1}."
+
+msgid "Phone call from {0}... {1}."
+msgstr "Telefonvoko de {0}... {1}."
+
+msgid "Play"
+msgstr "Ludi"
+
+msgid "Play sound effects"
+msgstr "Ludi sonefektojn"
+
+msgid "Poke"
+msgstr "Puŝeti"
+
+msgid "Poke..."
+msgstr "Puŝeti..."
+
+msgid "Push To Talk"
+msgstr "Premu por paroli"
+
+msgid "Push to talk"
+msgstr "Premu por paroli"
+
+msgid "Push to talk on and off"
+msgstr "Premu-por-paroli ŝaltita kaj malŝaltita"
+
+msgid "Push to talk room, buffer"
+msgstr "Ĉambro premu-por-paroli, bufro"
+
+msgid "Push-to-talk room"
+msgstr "Ĉambro premu-por-paroli"
+
+msgid "Quit"
+msgstr "Ĉesi"
+
+msgid "Received"
+msgstr "Ricevita"
+
+msgid "Reconnecting chat-only to {0} ({1}...) as {2}"
+msgstr "Rekonektas nur per babilo al {0} ({1}...) kiel {2}"
+
+msgid "Reconnecting to {0} ({1}...) as {2}"
+msgstr "Rekonektas al {0} ({1}...) kiel {2}"
+
+msgid "Refresh"
+msgstr "Aktualigi"
+
+msgid "Refused: {0}"
+msgstr "Rifuzita: {0}"
+
+msgid "Reject phone call {0}..."
+msgstr "Rifuzi telefonvokon {0}..."
+
+msgid "Remove"
+msgstr "Forigi"
+
+msgid "Remove Operator"
+msgstr "Forigi operatoron"
+
+msgid "Remove interface"
+msgstr "Forigi interfacon"
+
+msgid "Remove room"
+msgstr "Forigi ĉambron"
+
+msgid "Remove the interface “{0}” from the configuration?"
+msgstr "Ĉu forigi la interfacon “{0}” el la agordo?"
+
+msgid "Remove the room “{0}”? Its members move to the default room."
+msgstr "Ĉu forigi la ĉambron “{0}”? Ĝiaj membroj moviĝas al la defaŭlta ĉambro."
+
+msgid "Remove {0!r} from favorites?"
+msgstr "Ĉu forigi {0!r} el la preferataj?"
+
+msgid "Reset"
+msgstr "Restarigi"
+
+msgid "Reticulum Interfaces"
+msgstr "Reticulum-interfacoj"
+
+msgid "Reticulum is not running in this application."
+msgstr "Reticulum ne funkcias en ĉi tiu aplikaĵo."
+
+msgid "Room"
+msgstr "Ĉambro"
+
+msgid "Room {0} was removed."
+msgstr "Ĉambro {0} estis forigita."
+
+msgid "Rooms"
+msgstr "Ĉambroj"
+
+msgid "Save"
+msgstr "Konservi"
+
+msgid "Saved. The change takes effect when Reticulum restarts: {target}."
+msgstr "Konservita. La ŝanĝo efektiviĝas kiam Reticulum restartas: {target}."
+
+msgid "Self"
+msgstr "Mi"
+
+msgid "Send"
+msgstr "Sendi"
+
+msgid "Sent"
+msgstr "Sendita"
+
+msgid "Sent {0} packets, {1:,} bytes. Received {2} packets, {3:,} bytes."
+msgstr "Senditaj {0} pakaĵoj, {1:,} bajtoj. Ricevitaj {2} pakaĵoj, {3:,} bajtoj."
+
+msgid "Server"
+msgstr "Servilo"
+
+msgid "Server Information"
+msgstr "Servilaj informoj"
+
+msgid "Server Information..."
+msgstr "Servilaj informoj..."
+
+msgid "Server Mute"
+msgstr "Servila silentigo"
+
+msgid "Server Settings"
+msgstr "Servilaj agordoj"
+
+msgid "Server Settings..."
+msgstr "Servilaj agordoj..."
+
+msgid "Server Unmute"
+msgstr "Servila malsilentigo"
+
+msgid "Server password"
+msgstr "Servila pasvorto"
+
+msgid "Set"
+msgstr "Agordi"
+
+msgid "Set..."
+msgstr "Agordi..."
+
+msgid "Settings"
+msgstr "Agordoj"
+
+msgid "Settings..."
+msgstr "Agordoj..."
+
+msgid "Shortcut"
+msgstr "Klavkombino"
+
+msgid "Someone enters or leaves your room"
+msgstr "Iu eniras aŭ forlasas vian ĉambron"
+
+msgid "Someone joins the server"
+msgstr "Iu aliĝas al la servilo"
+
+msgid "Someone leaves the server"
+msgstr "Iu forlasas la servilon"
+
+msgid "Sound FX"
+msgstr "Sonefektoj"
+
+msgid "Status"
+msgstr "Stato"
+
+msgid "TX gain"
+msgstr "TX-amplifo"
+
+msgid "TX off"
+msgstr "TX for"
+
+msgid "Takes effect after a restart"
+msgstr "Efektiviĝas post restarto"
+
+msgid "Text size"
+msgstr "Tekstgrando"
+
+msgid "The codec and frame size are set by the server for each room."
+msgstr "La kodeko kaj kadra grando estas fiksitaj de la servilo por ĉiu ĉambro."
+
+msgid "The message of the day was cleared."
+msgstr "La mesaĝo de la tago estis forviŝita."
+
+msgid "The running Reticulum instance uses none of the interfaces in this file. It was probably started with another configuration directory, so changes made here will not reach it."
+msgstr "La funkcianta Reticulum-instanco uzas neniun el la interfacoj en ĉi tiu dosiero. Ĝi verŝajne estis lanĉita kun alia agorda dosierujo, do ŝanĝoj faritaj ĉi tie ne atingos ĝin."
+
+msgid "The server runs Partyline {0} and you run {1}. Please update so both match."
+msgstr "La servilo uzas Partyline {0} kaj vi uzas {1}. Bonvolu ĝisdatigi por ke ambaŭ kongruu."
+
+msgid "The text could not be read: {0}"
+msgstr "La teksto ne legeblis: {0}"
+
+msgid "These interfaces run a program on this computer whenever Reticulum starts:\n\n{listing}\n\nAdd them anyway?"
+msgstr "Ĉi tiuj interfacoj lanĉas programon en ĉi tiu komputilo kiam ajn Reticulum startas:\n\n{listing}\n\nĈu tamen aldoni ilin?"
+
+msgid "Threshold"
+msgstr "Sojlo"
+
+msgid "Toggle: press once to talk, again to stop"
+msgstr "Baskuli: premu unufoje por paroli, denove por ĉesi"
+
+msgid "Transmission"
+msgstr "Elsendo"
+
+msgid "Type"
+msgstr "Tipo"
+
+msgid "Type name"
+msgstr "Tipnomo"
+
+msgid "Undeafened."
+msgstr "Malsurdigita."
+
+msgid "Unmute Locally"
+msgstr "Malsilentigi loke"
+
+msgid "Unmuted."
+msgstr "Malsilentigita."
+
+msgid "Usage: {0} CALL, where CALL is the start of the phone's identity hash."
+msgstr "Uzo: {0} VOKO, kie VOKO estas la komenco de la identeca haketo de la telefono."
+
+msgid "User"
+msgstr "Uzanto"
+
+msgid "Voice Activity"
+msgstr "Voĉa aktiveco"
+
+msgid "Welcome to Partyline. Server > Connect... to pick a server."
+msgstr "Bonvenon al Partyline. Servilo > Konekti... por elekti servilon."
+
+msgid "You poked {0}: {1}"
+msgstr "Vi puŝetis {0}: {1}"
+
+msgid "Your identity: {0}"
+msgstr "Via identeco: {0}"
+
+msgid "allow list"
+msgstr "permesolisto"
+
+msgid "audio setup failed: {0}"
+msgstr "sona agordo malsukcesis: {0}"
+
+msgid "bad server address: {0}"
+msgstr "malbona servila adreso: {0}"
+
+msgid "commands: /join ROOM [PASSWORD], /say TEXT, /poke USER TEXT, /who, /mute, /unmute, /deaf, /undeaf, /ptt, /kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, /answer CALL, /reject CALL, /pair HASH, /unpair HASH, /phones, /motd TEXT, /roomadd NAME[:PROFILE], /roomdel ROOM, /quit"
+msgstr "komandoj: /join ĈAMBRO [PASVORTO], /say TEKSTO, /poke UZANTO TEKSTO, /who, /mute, /unmute, /deaf, /undeaf, /ptt, /kick UZANTO, /ban UZANTO, /smute UZANTO, /sunmute UZANTO, /op UZANTO, /deop UZANTO, /move UZANTO ĈAMBRO, /answer VOKO, /reject VOKO, /pair HAKETO, /unpair HAKETO, /phones, /motd TEKSTO, /roomadd NOMO[:PROFILO], /roomdel ĈAMBRO, /quit"
+
+msgid "connected to {0!r}{1}"
+msgstr "konektita al {0!r}{1}"
+
+msgid "denied{0}: {1}"
+msgstr "rifuzita{0}: {1}"
+
+msgid "down"
+msgstr "malaktiva"
+
+msgid "hung up"
+msgstr "finis la vokon"
+
+msgid "identified users"
+msgstr "identigitaj uzantoj"
+
+msgid "install python3-pynput for system-wide shortcuts"
+msgstr "instalu python3-pynput por tutsistemaj klavkombinoj"
+
+msgid "message of the day: {0}"
+msgstr "mesaĝo de la tago: {0}"
+
+msgid "microphone unavailable, you can listen but not talk: {0}"
+msgstr "mikrofono ne disponeblas, vi povas aŭskulti sed ne paroli: {0}"
+
+msgid "microphones:"
+msgstr "mikrofonoj:"
+
+msgid "no"
+msgstr "ne"
+
+msgid "no input"
+msgstr "neniu enigo"
+
+msgid "no path to server (is it running and announced?)"
+msgstr "neniu vojo al la servilo (ĉu ĝi funkcias kaj estas anoncita?)"
+
+msgid "no such room {0!r}"
+msgstr "ne ekzistas ĉambro {0!r}"
+
+msgid "no such room {0!r}; rooms: {1}"
+msgstr "ne ekzistas ĉambro {0!r}; ĉambroj: {1}"
+
+msgid "no such user {0!r}"
+msgstr "ne ekzistas uzanto {0!r}"
+
+msgid "not in any room"
+msgstr "en neniu ĉambro"
+
+msgid "now in room {0!r} ({1}{2})"
+msgstr "nun en ĉambro {0!r} ({1}{2})"
+
+msgid "open"
+msgstr "malferma"
+
+msgid "password"
+msgstr "pasvorto"
+
+msgid "path unknown"
+msgstr "vojo nekonata"
+
+msgid "phone call from {0} {1}"
+msgstr "telefonvoko de {0} {1}"
+
+msgid "points"
+msgstr "punktoj"
+
+msgid "press a key or mouse button..."
+msgstr "premu klavon aŭ musbutonon..."
+
+msgid "restart Partyline"
+msgstr "restartigu Partyline"
+
+msgid "restart the shared instance (rnsd)"
+msgstr "restartigu la komunan instancon (rnsd)"
+
+msgid "room uses unknown profile {0!r}"
+msgstr "ĉambro uzas nekonatan profilon {0!r}"
+
+msgid "room {0!r} uses unknown profile {1!r}"
+msgstr "ĉambro {0!r} uzas nekonatan profilon {1!r}"
+
+msgid "room {0} was removed"
+msgstr "ĉambro {0} estis forigita"
+
+msgid "server did not answer (not a room server, or an older version)"
+msgstr "servilo ne respondis (ne ĉambroservilo, aŭ pli malnova versio)"
+
+msgid "speakers:"
+msgstr "laŭtparoliloj:"
+
+msgid "start Reticulum again"
+msgstr "startu Reticulum denove"
+
+msgid "still looking for a path to the server"
+msgstr "ankoraŭ serĉas vojon al la servilo"
+
+msgid "this server speaks Partyline protocol {0}, this client speaks {1}: {2}"
+msgstr "ĉi tiu servilo parolas Partyline-protokolon {0}, ĉi tiu kliento parolas {1}: {2}"
+
+msgid "up"
+msgstr "aktiva"
+
+msgid "usage: /move USER ROOM"
+msgstr "uzo: /move UZANTO ĈAMBRO"
+
+msgid "version {0}, protocol {1}"
+msgstr "versio {0}, protokolo {1}"
+
+msgid "waiting"
+msgstr "atendas"
+
+msgid "was answered"
+msgstr "estis respondita"
+
+msgid "was not answered in time"
+msgstr "ne estis respondita ĝustatempe"
+
+msgid "was turned away"
+msgstr "estis rifuzita"
+
+msgid "yes"
+msgstr "jes"
+
+msgid "you poked {0}: {1}"
+msgstr "vi puŝetis {0}: {1}"
+
+msgid "you: {0} hop"
+msgid_plural "you: {0} hops"
+msgstr[0] "vi: {0} salto"
+msgstr[1] "vi: {0} saltoj"
+
+msgid "{0} asks for a password:"
+msgstr "{0} petas pasvorton:"
+
+msgid "{0} can be called from rnphone: {1}"
+msgstr "{0} estas vokebla de rnphone: {1}"
+
+msgid "{0} connected"
+msgstr "{0} konektiĝis"
+
+msgid "{0} could not be read: {1}"
+msgstr "{0} ne legeblis: {1}"
+
+msgid "{0} disconnected"
+msgstr "{0} malkonektiĝis"
+
+msgid "{0} hop away"
+msgid_plural "{0} hops away"
+msgstr[0] "{0} salto for"
+msgstr[1] "{0} saltoj for"
+
+msgid "{0} hop to server"
+msgid_plural "{0} hops to server"
+msgstr[0] "{0} salto al la servilo"
+msgstr[1] "{0} saltoj al la servilo"
+
+msgid "{0} in, {1} out"
+msgstr "{0} en, {1} el"
+
+msgid "{0} is no longer an operator."
+msgstr "{0} ne plu estas operatoro."
+
+msgid "{0} is now an operator."
+msgstr "{0} nun estas operatoro."
+
+msgid "{0} moved to {1}"
+msgstr "{0} moviĝis al {1}"
+
+msgid "{0} muted locally."
+msgstr "{0} silentigita loke."
+
+msgid "{0} poked you"
+msgstr "{0} puŝetis vin"
+
+msgid "{0} poked you: {1}"
+msgstr "{0} puŝetis vin: {1}"
+
+msgid "{0} requested on {1}."
+msgstr "{0} petita por {1}."
+
+msgid "{0} unmuted locally."
+msgstr "{0} malsilentigita loke."
+
+msgid "{0} client"
+msgid_plural "{0} clients"
+msgstr[0] "{0} kliento"
+msgstr[1] "{0} klientoj"
+
+msgid "{0} interface"
+msgid_plural "{0} interfaces"
+msgstr[0] "{0} interfaco"
+msgstr[1] "{0} interfacoj"
+
+msgid "{0} other program"
+msgid_plural "{0} other programs"
+msgstr[0] "{0} alia programo"
+msgstr[1] "{0} aliaj programoj"
+
+msgid "{0} peer"
+msgid_plural "{0} peers"
+msgstr[0] "{0} samtavolano"
+msgstr[1] "{0} samtavolanoj"
+
+msgid "   buffer {0:g} ms  ↑{1} ↓{2}"
+msgstr "   bufro {0:g} ms  ↑{1} ↓{2}"
+
+msgid "TX batch {0:g} ms / queued {1:g} ms   RX queued {2:g} ms"
+msgstr "TX-grupo {0:g} ms / en atendovico {1:g} ms   RX en atendovico {2:g} ms"
+
+msgid "Diagnostics..."
+msgstr "Diagnozo..."
+
+msgid "For Android"
+msgstr "Por Android"
+
+msgid "System-wide shortcut"
+msgstr "Tutsistema klavkombino"
+
+msgid "Applies after reconnecting."
+msgstr "Efektiviĝas post rekonekto."
+
+msgid "Share with an operator for allow-list access."
+msgstr "Donu al operatoro por aliro per permesolisto."
+
+msgid "Copied"
+msgstr "Kopiite"
+
+msgid "Recording ready"
+msgstr "Registrado preta"

@@ -1,0 +1,988 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: partyline 1.0.0\n"
+"PO-Revision-Date: 2026-09-11 00:00+0000\n"
+"Last-Translator: Partyline translations table\n"
+"Language-Team: nl\n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "(system default)"
+msgstr "(systeemstandaard)"
+
+msgid "*** phone call from {0} is waiting: /answer {1} or /reject {2}"
+msgstr "*** telefoongesprek van {0} wacht: /answer {1} of /reject {2}"
+
+msgid "*** the server runs Partyline {0}, you run {1}: please update so both match"
+msgstr "*** de server gebruikt Partyline {0}, jij gebruikt versie {1}: werk Partyline bij zodat beide versies overeenkomen"
+
+msgid "*** {0} poked you: {1}"
+msgstr "*** {0} heeft je gepord: {1}"
+
+msgid ", alongside {0}"
+msgstr ", naast {0}"
+
+msgid ", listed speakers only"
+msgstr ", alleen vermelde sprekers"
+
+msgid ", running as the shared instance"
+msgstr ", draait als de gedeelde instantie"
+
+msgid ", serving {0}"
+msgstr ", bedient {0}"
+
+msgid ", transport enabled"
+msgstr ", transport ingeschakeld"
+
+msgid "A group voice application for Reticulum, built on LXST"
+msgstr "Een groepsspraakapplicatie voor Reticulum, gebouwd op LXST"
+
+msgid "About"
+msgstr "Over"
+
+msgid "Access"
+msgstr "Toegang"
+
+msgid "Add"
+msgstr "Toevoegen"
+
+msgid "Add Interface"
+msgstr "Interface toevoegen"
+
+msgid "Add New..."
+msgstr "Nieuwe toevoegen..."
+
+msgid "Add Room"
+msgstr "Kamer toevoegen"
+
+msgid "Add Server"
+msgstr "Server toevoegen"
+
+msgid "Add to Favorites"
+msgstr "Aan favorieten toevoegen"
+
+msgid "Add..."
+msgstr "Toevoegen..."
+
+msgid "Address"
+msgstr "Adres"
+
+msgid "Address {0}"
+msgstr "Adres {0}"
+
+msgid "Address {0}, {1}, {2} users"
+msgstr "Adres {0}, {1}, {2} gebruikers"
+
+msgid "Advanced settings"
+msgstr "Geavanceerde instellingen"
+
+msgid "Allow list, one identity hash per line (blank for everyone)"
+msgstr "Toegangslijst, één identiteitshash per regel (leeg laten om iedereen toe te laten)"
+
+msgid "Announces in/out"
+msgstr "Aankondigingen in/uit"
+
+msgid "Answer phone call {0}..."
+msgstr "Telefoongesprek {0} beantwoorden..."
+
+msgid "Appearance and Language"
+msgstr "Uiterlijk en taal"
+
+msgid "Apply"
+msgstr "Toepassen"
+
+msgid "Attempting to reconnect in {0} s (attempt {1}). Disconnect to stop."
+msgstr "Opnieuw verbinden over {0} s (poging {1}). Verbreek de verbinding om te stoppen."
+
+msgid "Audio"
+msgstr "Audio"
+
+msgid "Audio Input"
+msgstr "Audio-invoer"
+
+msgid "Audio Output"
+msgstr "Audio-uitvoer"
+
+msgid "Automatic gain control (AGC)"
+msgstr "Automatische versterkingsregeling (AGC)"
+
+msgid "Ban"
+msgstr "Verbannen"
+
+msgid "Ban {0}?"
+msgstr "{0} verbannen?"
+
+msgid "Bitrate"
+msgstr "Bitsnelheid"
+
+msgid "Broadcast room: only these speakers may talk, one hash per line"
+msgstr "Uitzendkamer: alleen deze sprekers mogen praten, één hash per regel"
+
+msgid "Cancel"
+msgstr "Annuleren"
+
+msgid "Cannot join {0}: {1}"
+msgstr "Kan {0} niet betreden: {1}"
+
+msgid "Chat only"
+msgstr "Alleen chat"
+
+msgid "Chat-only"
+msgstr "Alleen chat"
+
+msgid "Check the numbers and identity hashes: {0}"
+msgstr "Controleer de getallen en identiteitshashes: {0}"
+
+msgid "Checking..."
+msgstr "Controleren..."
+
+msgid "Clear"
+msgstr "Wissen"
+
+msgid "Close"
+msgstr "Sluiten"
+
+msgid "Codec2 1200 bps, 400 ms frames"
+msgstr "Codec2 1200 bps, frames van 400 ms"
+
+msgid "Codec2 2400 bps, 200 ms frames"
+msgstr "Codec2 2400 bps, frames van 200 ms"
+
+msgid "Codec2 3200 bps, 200 ms frames"
+msgstr "Codec2 3200 bps, frames van 200 ms"
+
+msgid "Codec2 700 bps, 400 ms frames"
+msgstr "Codec2 700 bps, frames van 400 ms"
+
+msgid "Commands: /join ROOM [PASSWORD], /say TEXT, /poke USER TEXT, /who, /mute, /unmute, /deaf, /undeaf, /kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, /answer CALL, /reject CALL, /pair HASH, /unpair HASH, /phones, /motd TEXT, /roomadd NAME[:PROFILE], /roomdel ROOM"
+msgstr "Opdrachten: /join KAMER [WACHTWOORD], /say TEKST, /poke GEBRUIKER TEKST, /who, /mute, /unmute, /deaf, /undeaf, /kick GEBRUIKER, /ban GEBRUIKER, /smute GEBRUIKER, /sunmute GEBRUIKER, /op GEBRUIKER, /deop GEBRUIKER, /move GEBRUIKER KAMER, /answer GESPREK, /reject GESPREK, /pair HASH, /unpair HASH, /phones, /motd TEKST, /roomadd NAAM[:PROFIEL], /roomdel KAMER"
+
+msgid "Configuration"
+msgstr "Configuratie"
+
+msgid "Configuration file: {0}"
+msgstr "Configuratiebestand: {0}"
+
+msgid "Configure"
+msgstr "Configureren"
+
+msgid "Connect"
+msgstr "Verbinden"
+
+msgid "Connect chat-only?\n\nYou will not be able to talk or hear anyone. Only the chat window works. Use this on very slow links where voice cannot get through."
+msgstr "Verbinden met alleen tekstchat?\n\nJe kunt dan niet praten of iemand horen. Alleen het chatvenster werkt. Gebruik dit op zeer trage verbindingen waar spraak niet doorkomt."
+
+msgid "Connect to Server"
+msgstr "Verbinden met server"
+
+msgid "Connect..."
+msgstr "Verbinden..."
+
+msgid "Connected to the shared Reticulum instance (rnsd). Restart it after changing interfaces."
+msgstr "Verbonden met de gedeelde Reticulum-instantie (rnsd). Herstart die na het wijzigen van interfaces."
+
+msgid "Connected to {0}{1}"
+msgstr "Verbonden met {0}{1}"
+
+msgid "Connected to {0}{1}.{2}"
+msgstr "Verbonden met {0}{1}.{2}"
+
+msgid "Connecting chat-only to {0} ({1}...) as {2}"
+msgstr "Alleen met chat verbinden met {0} ({1}...) als {2}"
+
+msgid "Connecting to {0} ({1}...) as {2}"
+msgstr "Verbinden met {0} ({1}...) als {2}"
+
+msgid "Connection lost, attempting to reconnect in {0} s (attempt {1})"
+msgstr "Verbinding verbroken, opnieuw verbinden over {0} s (poging {1})"
+
+msgid "Connection lost: {0}"
+msgstr "Verbinding verbroken: {0}"
+
+msgid "Continuous"
+msgstr "Continu"
+
+msgid "Copy"
+msgstr "Kopiëren"
+
+msgid "Copy address"
+msgstr "Adres kopiëren"
+
+msgid "Copy dial-in number"
+msgstr "Inbelnummer kopiëren"
+
+msgid "Copy identity hash"
+msgstr "Identiteitshash kopiëren"
+
+msgid "Could not write {0}: {1}"
+msgstr "Kon {0} niet schrijven: {1}"
+
+msgid "Dark Mode"
+msgstr "Donkere modus"
+
+msgid "Dark mode"
+msgstr "Donkere modus"
+
+msgid "Deafen"
+msgstr "Geluid uitschakelen"
+
+msgid "Deafen Self"
+msgstr "Geluid uitschakelen"
+
+msgid "Deafened (and muted)."
+msgstr "Geluid uitgeschakeld (en microfoon gedempt)."
+
+msgid "Details..."
+msgstr "Details..."
+
+msgid "Device"
+msgstr "Apparaat"
+
+msgid "Dial-in number: {0}"
+msgstr "Inbelnummer: {0}"
+
+msgid "Disable"
+msgstr "Uitschakelen"
+
+msgid "Disconnect"
+msgstr "Verbinding verbreken"
+
+msgid "Disconnected from the server"
+msgstr "Verbinding met de server verbroken"
+
+msgid "Disconnected."
+msgstr "Verbinding verbroken."
+
+msgid "Discovered ({0})"
+msgstr "Gevonden ({0})"
+
+msgid "Display debug stats (bitrates and loss counters in the status bar)"
+msgstr "Debugstatistieken tonen (bitsnelheden en verliestellers in de statusbalk)"
+
+msgid "Display name"
+msgstr "Weergavenaam"
+
+msgid "Don't show this again"
+msgstr "Dit niet meer tonen"
+
+msgid "Edit Interface: {0}"
+msgstr "Interface bewerken: {0}"
+
+msgid "Edit Room..."
+msgstr "Kamer bewerken..."
+
+msgid "Edit Room: {0}"
+msgstr "Kamer bewerken: {0}"
+
+msgid "Edit Server"
+msgstr "Server bewerken"
+
+msgid "Edit..."
+msgstr "Bewerken..."
+
+msgid "Enable"
+msgstr "Inschakelen"
+
+msgid "Enable max jitter buffer"
+msgstr "Maximale jitterbuffer inschakelen"
+
+msgid "Enabled"
+msgstr "Ingeschakeld"
+
+msgid "Favorites"
+msgstr "Favorieten"
+
+msgid "Fill the link MTU"
+msgstr "De MTU van de link vullen"
+
+msgid "Filter"
+msgstr "Filter"
+
+msgid "Frames per packet"
+msgstr "Frames per pakket"
+
+msgid "Give the custom interface a type name."
+msgstr "Geef de aangepaste interface een typenaam."
+
+msgid "Give the interface a name."
+msgstr "Geef de interface een naam."
+
+msgid "Give the room a name."
+msgstr "Geef de kamer een naam."
+
+msgid "Hang time"
+msgstr "Nalooptijd"
+
+msgid "Help"
+msgstr "Help"
+
+msgid "Hey!"
+msgstr "Hé!"
+
+msgid "Identified users only"
+msgstr "Alleen geïdentificeerde gebruikers"
+
+msgid "Identity hash"
+msgstr "Identiteitshash"
+
+msgid "Identity hash of the phone (32 hex characters):"
+msgstr "Identiteitshash van de telefoon (32 hex-tekens):"
+
+msgid "Input level"
+msgstr "Invoerniveau"
+
+msgid "Interface"
+msgstr "Interface"
+
+msgid "Interface: {0}"
+msgstr "Interface: {0}"
+
+msgid "Interfaces..."
+msgstr "Interfaces..."
+
+msgid "Jitter buffer"
+msgstr "Jitterbuffer"
+
+msgid "Join"
+msgstr "Betreden"
+
+msgid "Join Room"
+msgstr "Kamer betreden"
+
+msgid "Join a room to chat."
+msgstr "Betreed een kamer om te chatten."
+
+msgid "Kick"
+msgstr "Wegsturen"
+
+msgid "Kick {0}?"
+msgstr "{0} wegsturen?"
+
+msgid "Language"
+msgstr "Taal"
+
+msgid "List paired phones"
+msgstr "Gekoppelde telefoons tonen"
+
+msgid "Listen only"
+msgstr "Alleen luisteren"
+
+msgid "Local Volume: {0}"
+msgstr "Lokaal volume: {0}"
+
+msgid "Make Operator"
+msgstr "Tot beheerder maken"
+
+msgid "Message of the day"
+msgstr "Bericht van de dag"
+
+msgid "Message of the day: {0}"
+msgstr "Bericht van de dag: {0}"
+
+msgid "Message to {0}:"
+msgstr "Bericht aan {0}:"
+
+msgid "Microphone"
+msgstr "Microfoon"
+
+msgid "More options"
+msgstr "Meer opties"
+
+msgid "Move to"
+msgstr "Verplaatsen naar"
+
+msgid "Mute"
+msgstr "Dempen"
+
+msgid "Mute Locally"
+msgstr "Lokaal dempen"
+
+msgid "Mute Self"
+msgstr "Jezelf dempen"
+
+msgid "Muted."
+msgstr "Gedempt."
+
+msgid "Muting and deafening"
+msgstr "Dempen en doof zetten"
+
+msgid "Name"
+msgstr "Naam"
+
+msgid "No interface sections found. Each interface needs a [[Name]] line followed by its settings."
+msgstr "Geen interfacesecties gevonden. Elke interface heeft een regel [[Naam]] nodig, gevolgd door de instellingen."
+
+msgid "Not connected"
+msgstr "Niet verbonden"
+
+msgid "Not connected."
+msgstr "Niet verbonden."
+
+msgid "Not in any room: double-click a room to join it."
+msgstr "In geen enkele kamer: dubbelklik op een kamer om die te betreden."
+
+msgid "Offline, no interfaces configured"
+msgstr "Offline, geen interfaces geconfigureerd"
+
+msgid "Offline, no interfaces up (0 of {0})"
+msgstr "Offline, geen interfaces actief (0 van {0})"
+
+msgid "Offline, the shared instance has no interfaces configured"
+msgstr "Offline, de gedeelde instantie heeft geen interfaces geconfigureerd"
+
+msgid "Offline, the shared instance has no interfaces up (0 of {0})"
+msgstr "Offline, de gedeelde instantie heeft geen actieve interfaces (0 van {0})"
+
+msgid "Offline, {0}"
+msgstr "Offline, {0}"
+
+msgid "Online through the shared instance, {0} of {1} up"
+msgstr "Online via de gedeelde instantie, {0} van {1} actief"
+
+msgid "Online, {0} of {1} up"
+msgstr "Online, {0} van {1} actief"
+
+msgid "Only modify these settings if you know what you are doing"
+msgstr "Wijzig deze instellingen alleen als je weet wat je doet"
+
+msgid "Only operators can change server settings."
+msgstr "Alleen beheerders kunnen serverinstellingen wijzigen."
+
+msgid "Operator actions"
+msgstr "Beheerdersacties"
+
+msgid "Opus 16 kbps, 20 ms frames"
+msgstr "Opus 16 kbps, frames van 20 ms"
+
+msgid "Opus 6 kbps, 60 ms frames"
+msgstr "Opus 6 kbps, frames van 60 ms"
+
+msgid "Opus 8 kbps, 60 ms frames"
+msgstr "Opus 8 kbps, frames van 60 ms"
+
+msgid "Opus music 14 kbps, 40 ms frames"
+msgstr "Opus muziek 14 kbps, frames van 40 ms"
+
+msgid "Opus music 28 kbps, 40 ms frames"
+msgstr "Opus muziek 28 kbps, frames van 40 ms"
+
+msgid "Opus music 56 kbps, 40 ms frames"
+msgstr "Opus muziek 56 kbps, frames van 40 ms"
+
+msgid "Other (custom type)"
+msgstr "Anders (aangepast type)"
+
+msgid "Other settings (key = value per line, sub-interfaces as [[[Name]]] sections)"
+msgstr "Overige instellingen (sleutel = waarde per regel, subinterfaces als [[[Naam]]]-secties)"
+
+msgid "Other settings could not be read: {0}"
+msgstr "Overige instellingen konden niet worden gelezen: {0}"
+
+msgid "Our identity hash: {0}"
+msgstr "Onze identiteitshash: {0}"
+
+msgid "Pair a phone"
+msgstr "Telefoon koppelen"
+
+msgid "Pair a phone..."
+msgstr "Telefoon koppelen..."
+
+msgid "Partyline is about to change the Reticulum configuration file\n\n{path}\n\nComments and other settings in the file are kept, a copy of the original is saved next to it as config.bak, and changes take effect when Reticulum restarts. Allow Partyline to edit this file? This is asked only once."
+msgstr "Partyline gaat het Reticulum-configuratiebestand wijzigen\n\n{path}\n\nOpmerkingen en andere instellingen in het bestand blijven behouden, een kopie van het origineel wordt ernaast opgeslagen als config.bak, en wijzigingen gaan in als Reticulum herstart. Partyline dit bestand laten bewerken? Dit wordt maar één keer gevraagd."
+
+msgid "Partyline runs its own Reticulum instance. Restart Partyline after changing interfaces."
+msgstr "Partyline draait zijn eigen Reticulum-instantie. Herstart Partyline na het wijzigen van interfaces."
+
+msgid "Password for {0}:"
+msgstr "Wachtwoord voor {0}:"
+
+msgid "Paste Interface"
+msgstr "Interface plakken"
+
+msgid "Paste one or more interface sections as they appear in the Reticulum config file, for example:"
+msgstr "Plak een of meer interfacesecties zoals ze in het Reticulum-configuratiebestand staan, bijvoorbeeld:"
+
+msgid "Paste..."
+msgstr "Plakken..."
+
+msgid "Phone call from {0} is waiting. Right-click the room to answer it, or type /answer {1}."
+msgstr "Telefoongesprek van {0} wacht. Klik met de rechtermuisknop op de kamer om te beantwoorden, of typ /answer {1}."
+
+msgid "Phone call from {0}... {1}."
+msgstr "Telefoongesprek van {0}... {1}."
+
+msgid "Play"
+msgstr "Afspelen"
+
+msgid "Play sound effects"
+msgstr "Geluidseffecten afspelen"
+
+msgid "Poke"
+msgstr "Porren"
+
+msgid "Poke..."
+msgstr "Porren..."
+
+msgid "Push To Talk"
+msgstr "Push-to-talk"
+
+msgid "Push to talk"
+msgstr "Push-to-talk"
+
+msgid "Push to talk on and off"
+msgstr "Push-to-talk aan en uit"
+
+msgid "Push to talk room, buffer"
+msgstr "Push-to-talk-kamer, buffer"
+
+msgid "Push-to-talk room"
+msgstr "Push-to-talk-kamer"
+
+msgid "Quit"
+msgstr "Afsluiten"
+
+msgid "Received"
+msgstr "Ontvangen"
+
+msgid "Reconnecting chat-only to {0} ({1}...) as {2}"
+msgstr "Opnieuw alleen met chat verbinden met {0} ({1}...) als {2}"
+
+msgid "Reconnecting to {0} ({1}...) as {2}"
+msgstr "Opnieuw verbinden met {0} ({1}...) als {2}"
+
+msgid "Refresh"
+msgstr "Vernieuwen"
+
+msgid "Refused: {0}"
+msgstr "Geweigerd: {0}"
+
+msgid "Reject phone call {0}..."
+msgstr "Telefoongesprek {0} weigeren..."
+
+msgid "Remove"
+msgstr "Verwijderen"
+
+msgid "Remove Operator"
+msgstr "Beheerdersrechten intrekken"
+
+msgid "Remove interface"
+msgstr "Interface verwijderen"
+
+msgid "Remove room"
+msgstr "Kamer verwijderen"
+
+msgid "Remove the interface “{0}” from the configuration?"
+msgstr "De interface “{0}” uit de configuratie verwijderen?"
+
+msgid "Remove the room “{0}”? Its members move to the default room."
+msgstr "De kamer “{0}” verwijderen? De leden gaan naar de standaardkamer."
+
+msgid "Remove {0!r} from favorites?"
+msgstr "{0!r} uit favorieten verwijderen?"
+
+msgid "Reset"
+msgstr "Herstellen"
+
+msgid "Reticulum Interfaces"
+msgstr "Reticulum-interfaces"
+
+msgid "Reticulum is not running in this application."
+msgstr "Reticulum draait niet in deze applicatie."
+
+msgid "Room"
+msgstr "Kamer"
+
+msgid "Room {0} was removed."
+msgstr "Kamer {0} is verwijderd."
+
+msgid "Rooms"
+msgstr "Kamers"
+
+msgid "Save"
+msgstr "Opslaan"
+
+msgid "Saved. The change takes effect when Reticulum restarts: {target}."
+msgstr "Opgeslagen. De wijziging gaat in als Reticulum herstart: {target}."
+
+msgid "Self"
+msgstr "Zelf"
+
+msgid "Send"
+msgstr "Verzenden"
+
+msgid "Sent"
+msgstr "Verzonden"
+
+msgid "Sent {0} packets, {1:,} bytes. Received {2} packets, {3:,} bytes."
+msgstr "{0} pakketten verzonden, {1:,} bytes. {2} pakketten ontvangen, {3:,} bytes."
+
+msgid "Server"
+msgstr "Server"
+
+msgid "Server Information"
+msgstr "Serverinformatie"
+
+msgid "Server Information..."
+msgstr "Serverinformatie..."
+
+msgid "Server Mute"
+msgstr "Dempen door server"
+
+msgid "Server Settings"
+msgstr "Serverinstellingen"
+
+msgid "Server Settings..."
+msgstr "Serverinstellingen..."
+
+msgid "Server Unmute"
+msgstr "Serverdemping opheffen"
+
+msgid "Server password"
+msgstr "Serverwachtwoord"
+
+msgid "Set"
+msgstr "Instellen"
+
+msgid "Set..."
+msgstr "Instellen..."
+
+msgid "Settings"
+msgstr "Instellingen"
+
+msgid "Settings..."
+msgstr "Instellingen..."
+
+msgid "Shortcut"
+msgstr "Sneltoets"
+
+msgid "Someone enters or leaves your room"
+msgstr "Iemand komt je kamer binnen of verlaat die"
+
+msgid "Someone joins the server"
+msgstr "Iemand komt op de server"
+
+msgid "Someone leaves the server"
+msgstr "Iemand verlaat de server"
+
+msgid "Sound FX"
+msgstr "Geluidseffecten"
+
+msgid "Status"
+msgstr "Status"
+
+msgid "TX gain"
+msgstr "TX-versterking"
+
+msgid "TX off"
+msgstr "TX uit"
+
+msgid "Takes effect after a restart"
+msgstr "Gaat in na een herstart"
+
+msgid "Text size"
+msgstr "Tekstgrootte"
+
+msgid "The codec and frame size are set by the server for each room."
+msgstr "De codec en framegrootte worden per kamer door de server bepaald."
+
+msgid "The message of the day was cleared."
+msgstr "Het bericht van de dag is gewist."
+
+msgid "The running Reticulum instance uses none of the interfaces in this file. It was probably started with another configuration directory, so changes made here will not reach it."
+msgstr "De actieve Reticulum-instantie gebruikt geen van de interfaces in dit bestand. Die is waarschijnlijk met een andere configuratiemap gestart, waardoor wijzigingen in dit bestand geen effect hebben op die instantie."
+
+msgid "The server runs Partyline {0} and you run {1}. Please update so both match."
+msgstr "De server gebruikt Partyline {0} en jij gebruikt versie {1}. Werk Partyline bij zodat beide versies overeenkomen."
+
+msgid "The text could not be read: {0}"
+msgstr "De tekst kon niet worden gelezen: {0}"
+
+msgid "These interfaces run a program on this computer whenever Reticulum starts:\n\n{listing}\n\nAdd them anyway?"
+msgstr "Deze interfaces starten een programma op deze computer telkens als Reticulum start:\n\n{listing}\n\nToch toevoegen?"
+
+msgid "Threshold"
+msgstr "Drempel"
+
+msgid "Toggle: press once to talk, again to stop"
+msgstr "Schakelen: eenmaal drukken om te praten, nogmaals om te stoppen"
+
+msgid "Transmission"
+msgstr "Zenden"
+
+msgid "Type"
+msgstr "Type"
+
+msgid "Type name"
+msgstr "Typenaam"
+
+msgid "Undeafened."
+msgstr "Geluid weer ingeschakeld."
+
+msgid "Unmute Locally"
+msgstr "Lokale demping opheffen"
+
+msgid "Unmuted."
+msgstr "Demping opgeheven."
+
+msgid "Usage: {0} CALL, where CALL is the start of the phone's identity hash."
+msgstr "Gebruik: {0} GESPREK, waarbij GESPREK het begin van de identiteitshash van de telefoon is."
+
+msgid "User"
+msgstr "Gebruiker"
+
+msgid "Voice Activity"
+msgstr "Spraakactiviteit"
+
+msgid "Welcome to Partyline. Server > Connect... to pick a server."
+msgstr "Welkom bij Partyline. Kies Server > Verbinden... om een server te selecteren."
+
+msgid "You poked {0}: {1}"
+msgstr "Je hebt {0} gepord: {1}"
+
+msgid "Your identity: {0}"
+msgstr "Jouw identiteit: {0}"
+
+msgid "allow list"
+msgstr "toegangslijst"
+
+msgid "audio setup failed: {0}"
+msgstr "instellen van audio mislukt: {0}"
+
+msgid "bad server address: {0}"
+msgstr "ongeldig serveradres: {0}"
+
+msgid "commands: /join ROOM [PASSWORD], /say TEXT, /poke USER TEXT, /who, /mute, /unmute, /deaf, /undeaf, /ptt, /kick USER, /ban USER, /smute USER, /sunmute USER, /op USER, /deop USER, /move USER ROOM, /answer CALL, /reject CALL, /pair HASH, /unpair HASH, /phones, /motd TEXT, /roomadd NAME[:PROFILE], /roomdel ROOM, /quit"
+msgstr "opdrachten: /join KAMER [WACHTWOORD], /say TEKST, /poke GEBRUIKER TEKST, /who, /mute, /unmute, /deaf, /undeaf, /ptt, /kick GEBRUIKER, /ban GEBRUIKER, /smute GEBRUIKER, /sunmute GEBRUIKER, /op GEBRUIKER, /deop GEBRUIKER, /move GEBRUIKER KAMER, /answer GESPREK, /reject GESPREK, /pair HASH, /unpair HASH, /phones, /motd TEKST, /roomadd NAAM[:PROFIEL], /roomdel KAMER, /quit"
+
+msgid "connected to {0!r}{1}"
+msgstr "verbonden met {0!r}{1}"
+
+msgid "denied{0}: {1}"
+msgstr "geweigerd{0}: {1}"
+
+msgid "down"
+msgstr "inactief"
+
+msgid "hung up"
+msgstr "is beëindigd"
+
+msgid "identified users"
+msgstr "geïdentificeerde gebruikers"
+
+msgid "install python3-pynput for system-wide shortcuts"
+msgstr "installeer python3-pynput voor systeembrede sneltoetsen"
+
+msgid "message of the day: {0}"
+msgstr "bericht van de dag: {0}"
+
+msgid "microphone unavailable, you can listen but not talk: {0}"
+msgstr "microfoon niet beschikbaar, je kunt luisteren maar niet praten: {0}"
+
+msgid "microphones:"
+msgstr "microfoons:"
+
+msgid "no"
+msgstr "nee"
+
+msgid "no input"
+msgstr "geen invoer"
+
+msgid "no path to server (is it running and announced?)"
+msgstr "geen pad naar de server (draait hij en is hij aangekondigd?)"
+
+msgid "no such room {0!r}"
+msgstr "kamer {0!r} bestaat niet"
+
+msgid "no such room {0!r}; rooms: {1}"
+msgstr "kamer {0!r} bestaat niet; kamers: {1}"
+
+msgid "no such user {0!r}"
+msgstr "gebruiker {0!r} bestaat niet"
+
+msgid "not in any room"
+msgstr "in geen enkele kamer"
+
+msgid "now in room {0!r} ({1}{2})"
+msgstr "nu in kamer {0!r} ({1}{2})"
+
+msgid "open"
+msgstr "open"
+
+msgid "password"
+msgstr "wachtwoord"
+
+msgid "path unknown"
+msgstr "pad onbekend"
+
+msgid "phone call from {0} {1}"
+msgstr "telefoongesprek van {0} {1}"
+
+msgid "points"
+msgstr "punten"
+
+msgid "press a key or mouse button..."
+msgstr "druk op een toets of muisknop..."
+
+msgid "restart Partyline"
+msgstr "herstart Partyline"
+
+msgid "restart the shared instance (rnsd)"
+msgstr "herstart de gedeelde instantie (rnsd)"
+
+msgid "room uses unknown profile {0!r}"
+msgstr "kamer gebruikt onbekend profiel {0!r}"
+
+msgid "room {0!r} uses unknown profile {1!r}"
+msgstr "kamer {0!r} gebruikt onbekend profiel {1!r}"
+
+msgid "room {0} was removed"
+msgstr "kamer {0} is verwijderd"
+
+msgid "server did not answer (not a room server, or an older version)"
+msgstr "server antwoordde niet (geen kamerserver, of een oudere versie)"
+
+msgid "speakers:"
+msgstr "luidsprekers:"
+
+msgid "start Reticulum again"
+msgstr "start Reticulum opnieuw"
+
+msgid "still looking for a path to the server"
+msgstr "nog op zoek naar een pad naar de server"
+
+msgid "this server speaks Partyline protocol {0}, this client speaks {1}: {2}"
+msgstr "deze server spreekt Partyline-protocol {0}, deze client spreekt {1}: {2}"
+
+msgid "up"
+msgstr "actief"
+
+msgid "usage: /move USER ROOM"
+msgstr "gebruik: /move GEBRUIKER KAMER"
+
+msgid "version {0}, protocol {1}"
+msgstr "versie {0}, protocol {1}"
+
+msgid "waiting"
+msgstr "wachten"
+
+msgid "was answered"
+msgstr "is beantwoord"
+
+msgid "was not answered in time"
+msgstr "is niet op tijd beantwoord"
+
+msgid "was turned away"
+msgstr "is geweigerd"
+
+msgid "yes"
+msgstr "ja"
+
+msgid "you poked {0}: {1}"
+msgstr "je hebt {0} gepord: {1}"
+
+msgid "you: {0} hop"
+msgid_plural "you: {0} hops"
+msgstr[0] "jij: {0} hop"
+msgstr[1] "jij: {0} hops"
+
+msgid "{0} asks for a password:"
+msgstr "{0} vraagt om een wachtwoord:"
+
+msgid "{0} can be called from rnphone: {1}"
+msgstr "{0} is te bellen vanaf rnphone: {1}"
+
+msgid "{0} connected"
+msgstr "{0} is verbonden"
+
+msgid "{0} could not be read: {1}"
+msgstr "{0} kon niet worden gelezen: {1}"
+
+msgid "{0} disconnected"
+msgstr "{0} heeft de verbinding verbroken"
+
+msgid "{0} hop away"
+msgid_plural "{0} hops away"
+msgstr[0] "{0} hop verderop"
+msgstr[1] "{0} hops verderop"
+
+msgid "{0} hop to server"
+msgid_plural "{0} hops to server"
+msgstr[0] "{0} hop naar de server"
+msgstr[1] "{0} hops naar de server"
+
+msgid "{0} in, {1} out"
+msgstr "{0} in, {1} uit"
+
+msgid "{0} is no longer an operator."
+msgstr "{0} is geen beheerder meer."
+
+msgid "{0} is now an operator."
+msgstr "{0} is nu beheerder."
+
+msgid "{0} moved to {1}"
+msgstr "{0} is verplaatst naar {1}"
+
+msgid "{0} muted locally."
+msgstr "{0} lokaal gedempt."
+
+msgid "{0} poked you"
+msgstr "{0} heeft je gepord"
+
+msgid "{0} poked you: {1}"
+msgstr "{0} heeft je gepord: {1}"
+
+msgid "{0} requested on {1}."
+msgstr "{0} aangevraagd voor {1}."
+
+msgid "{0} unmuted locally."
+msgstr "Lokale demping van {0} opgeheven."
+
+msgid "{0} client"
+msgid_plural "{0} clients"
+msgstr[0] "{0} client"
+msgstr[1] "{0} clients"
+
+msgid "{0} interface"
+msgid_plural "{0} interfaces"
+msgstr[0] "{0} interface"
+msgstr[1] "{0} interfaces"
+
+msgid "{0} other program"
+msgid_plural "{0} other programs"
+msgstr[0] "{0} ander programma"
+msgstr[1] "{0} andere programma's"
+
+msgid "{0} peer"
+msgid_plural "{0} peers"
+msgstr[0] "{0} peer"
+msgstr[1] "{0} peers"
+
+msgid "   buffer {0:g} ms  ↑{1} ↓{2}"
+msgstr "   buffer {0:g} ms  ↑{1} ↓{2}"
+
+msgid "TX batch {0:g} ms / queued {1:g} ms   RX queued {2:g} ms"
+msgstr "TX-bundel {0:g} ms / in wachtrij {1:g} ms   RX in wachtrij {2:g} ms"
+
+msgid "Diagnostics..."
+msgstr "Diagnostiek..."
+
+msgid "For Android"
+msgstr "Voor Android"
+
+msgid "System-wide shortcut"
+msgstr "Systeembrede sneltoets"
+
+msgid "Applies after reconnecting."
+msgstr "Geldt na opnieuw verbinden."
+
+msgid "Share with an operator for allow-list access."
+msgstr "Deel met een beheerder voor toegang via de toegangslijst."
+
+msgid "Copied"
+msgstr "Gekopieerd"
+
+msgid "Recording ready"
+msgstr "Opname gereed"

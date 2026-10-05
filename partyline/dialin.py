@@ -1,4 +1,5 @@
 import collections
+import os
 import queue
 import threading
 import time
@@ -14,8 +15,13 @@ from .common import *
 from .audio import Playout, Speaker
 
 ANSWER_DELAY = 0.6   # seconds of ringing before the bridge picks up
+PENDING_TIMEOUT = 55.0
+APPROVED_FILENAME = "dialin_approved.txt"
 
 RING_TIMEOUT = 30.0  # seconds a link may sit unidentified before it is dropped
+MAX_CALLS = 16
+MAX_PENDING_CALLS = 4
+MAX_QUEUED_PACKETS = 256
 SAMPLE_RATE = 48000
 
 
@@ -135,14 +141,13 @@ class Call:
         self.speakers = {}
         self.playout = None
         self.feed = None
+        self.created_at = time.time()
         self.started_at = None
 
         self.room = dialin.room
-        self.room_codec = make_codec(self.room.profile)
-        self.room_codec.source = _Endpoint()
-        self.room_codec.sink = None
-        self.room_header = codec_byte(self.room.profile)
-        self.room_samples_per_frame = SAMPLE_RATE * self.room.frame_ms // 1000
+        self.room_codec = None
+        self.room_header = None
+        self.room_samples_per_frame = 0
 
         self.caller_samples = np.zeros((0, 1), dtype="float32")
         self.sequence = 0
@@ -152,10 +157,9 @@ class Call:
         self.gate_was_open = False
         self.injected_frames = 0
 
-        self.inbox = queue.Queue()
-        threading.Thread(target=self._worker, daemon=True).start()
+        self.inbox = queue.Queue(MAX_QUEUED_PACKETS)
 
-        link.set_packet_callback(lambda data, packet: self.inbox.put((data, packet)))
+        link.set_packet_callback(self.received)
         link.set_remote_identified_callback(self.identified)
         link.set_link_closed_callback(self.closed)
 
@@ -176,17 +180,62 @@ class Call:
         if self.link and self.link.status == RNS.Link.ACTIVE:
             RNS.Packet(self.link, msgpack.packb({FIELD_SIGNALLING: signals}), create_receipt=False).send()
 
+    def received(self, data, packet):
+        try:
+            self.inbox.put_nowait((data, packet))
+        except queue.Full:
+            pass
+
     def identified(self, link, identity):
         self.identity = identity
-        if self.dialin.allowed is not None and identity.hash not in self.dialin.allowed:
+        if identity.hash in self.server.banned:
+            RNS.log(f"Dial-in: {self.label()} is banned, rejecting", RNS.LOG_NOTICE)
+            self.signal(Signalling.STATUS_REJECTED)
+            threading.Timer(0.5, self.hangup).start()
+            return
+        known = self.dialin.is_known(identity.hash)
+        if self.dialin.allowed is not None and not known:
             RNS.log(f"Dial-in: {self.label()} is not allowed, rejecting", RNS.LOG_NOTICE)
             self.signal(Signalling.STATUS_REJECTED)
             threading.Timer(0.5, self.hangup).start()
             return
-        self.state = "ringing"
+        needs_approval = not known and self.dialin.needs_approval()
+        if needs_approval and len(self.dialin.pending()) >= MAX_PENDING_CALLS:
+            RNS.log(f"Dial-in: too many calls are waiting for approval, turning {self.label()} away", RNS.LOG_NOTICE)
+            self.signal(Signalling.STATUS_BUSY)
+            threading.Timer(0.5, self.hangup).start()
+            return
+        threading.Thread(target=self._worker, daemon=True).start()
+        if not needs_approval:
+            self.state = "ringing"
+            self.signal(Signalling.STATUS_RINGING)
+            RNS.log(f"Dial-in: {self.label()} ringing", RNS.LOG_NOTICE)
+            threading.Timer(ANSWER_DELAY, self.answer).start()
+            return
+        self.state = "pending"
         self.signal(Signalling.STATUS_RINGING)
-        RNS.log(f"Dial-in: {self.label()} ringing", RNS.LOG_NOTICE)
-        threading.Timer(ANSWER_DELAY, self.answer).start()
+        RNS.log(f"Dial-in: {self.label()} is waiting for approval", RNS.LOG_NOTICE)
+        threading.Timer(PENDING_TIMEOUT, self.pending_timeout).start()
+        self.server.dialin_waiting(self)
+
+    def accept(self):
+        if self.state != "pending":
+            return False
+        self.state = "ringing"
+        return self.answer()
+
+    def decline(self, event="rejected"):
+        if self.state != "pending":
+            return False
+        self.state = "declined"
+        self.signal(Signalling.STATUS_REJECTED)
+        RNS.log(f"Dial-in: {self.label()} {event}", RNS.LOG_NOTICE)
+        self.server.dialin_event(self, event)
+        threading.Timer(0.5, self.hangup).start()
+        return True
+
+    def pending_timeout(self):
+        self.decline("timeout")
 
     def ring_timeout(self):
         if self.state == "new":
@@ -196,8 +245,15 @@ class Call:
 
     def answer(self):
         if self.state != "ringing" or self.link.status != RNS.Link.ACTIVE:
-            return
+            return False
         self.signal(Signalling.STATUS_CONNECTING)
+
+        self.room = self.dialin.room
+        self.room_codec = make_codec(self.room.profile)
+        self.room_codec.source = _Endpoint()
+        self.room_codec.sink = None
+        self.room_header = codec_byte(self.room.profile)
+        self.room_samples_per_frame = SAMPLE_RATE * self.room.frame_ms // 1000
 
         name = clean_name(f"{self.dialin.name_prefix}-{self.identity.hash.hex()[:6]}", "phone")
         rtt = None
@@ -209,7 +265,7 @@ class Call:
             RNS.log(f"Dial-in: {self.label()} refused: {reason}", RNS.LOG_NOTICE)
             self.signal(Signalling.STATUS_REJECTED)
             threading.Timer(0.5, self.hangup).start()
-            return
+            return False
 
         self.member = member
         self.feed = CallerFeed(self)
@@ -222,10 +278,12 @@ class Call:
         self.state = "established"
         self.started_at = time.time()
         self.signal(Signalling.STATUS_ESTABLISHED)
+        self.server.dialin_event(self, "answered")
         preferred = telephony_profile(self.room.profile)
         if preferred is not None:
             self.signal(Signalling.PREFERRED_PROFILE + preferred)
         RNS.log(f"Dial-in: {self.label()} connected to {self.room.name} as {name}", RNS.LOG_NOTICE)
+        return True
 
     def handle_signals(self, signals):
         for signal in signals:
@@ -398,7 +456,10 @@ class Call:
     def hangup(self):
         if self.state == "ended":
             return
+        was_pending = self.state == "pending"
         self.state = "ended"
+        if was_pending:
+            self.server.dialin_event(self, "gone")
         if self.playout:
             self.playout.stop()
         if self.feed:
@@ -423,6 +484,7 @@ class DialIn:
         self.server = server
         self.identity = identity
         self.calls = {}
+        self.lock = threading.Lock()
         room = None
         if spec.get("room"):
             room = server.find_room(spec.get("room"))
@@ -434,6 +496,8 @@ class DialIn:
             self.allowed = load_hash_list(spec.get("allow"), spec.get("allowed_file"))
         else:
             self.allowed = None
+        self.approved_file = os.path.join(server.state_dir, APPROVED_FILENAME)
+        self.approved = load_hash_list(path=self.approved_file) if os.path.isfile(self.approved_file) else set()
         self.destination = RNS.Destination(
             identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, PRIMITIVE_NAME
         )
@@ -444,8 +508,44 @@ class DialIn:
     def number(self):
         return self.identity.hash.hex()
 
+    def is_known(self, identity_hash):
+        return identity_hash in self.approved or (self.allowed is not None and identity_hash in self.allowed)
+
+    def needs_approval(self):
+        server = self.server
+        return bool(server.password or server.allowed is not None or self.room.password or self.room.allow is not None)
+
+    def approve(self, identity_hash):
+        self.approved.add(identity_hash)
+        save_hash_list(self.approved_file, self.approved)
+
+    def forget(self, identity_hash):
+        self.approved.discard(identity_hash)
+        save_hash_list(self.approved_file, self.approved)
+
+    def pending(self):
+        return [call for call in list(self.calls.values()) if call.state == "pending" and call.identity is not None]
+
+    def find_pending(self, prefix):
+        prefix = str(prefix or "").strip().lower()
+        if len(prefix) < 4:
+            return None
+        matches = [call for call in self.pending() if call.identity.hash.hex().startswith(prefix)]
+        return matches[0] if len(matches) == 1 else None
+
     def incoming(self, link):
-        self.calls[link] = Call(self, link)
+        with self.lock:
+            if len(self.calls) >= MAX_CALLS:
+                unidentified = [call for call in list(self.calls.values()) if call.state == "new"]
+                if not unidentified:
+                    RNS.log("Dialin: all lines are busy, turning a call away", RNS.LOG_NOTICE)
+                    RNS.Packet(link, msgpack.packb({FIELD_SIGNALLING: [Signalling.STATUS_BUSY]}), create_receipt=False).send()
+                    link.teardown()
+                    return
+                oldest = min(unidentified, key=lambda call: call.created_at)
+                RNS.log("Dialin: dropping the oldest unidentified caller to free a line", RNS.LOG_NOTICE)
+                oldest.hangup()
+            self.calls[link] = Call(self, link)
         RNS.log(f"Dialin: incoming call, {len(self.calls)} on the line", RNS.LOG_NOTICE)
 
     def announce(self):

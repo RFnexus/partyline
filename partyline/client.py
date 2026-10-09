@@ -33,6 +33,17 @@ ROOM_SPEC_WAIT = 120.0
 SAMPLE_RATE = 48000
 
 FILL_MAX_MS = 2500
+
+MAX_SPEAKERS = 1024
+MAX_CHANNELS = 256
+MAX_USERS = 4096
+MAX_PENDING_CALLS = 256
+MAX_HEARD = 4096
+MAX_EVENTS = 2048
+MAX_INBOX = 2048
+MAX_BURST = 65536
+SPEAKER_TTL = 60.0
+MAX_NEW_SPEAKERS_PER_SECOND = 50
 PTT_PREROLL_MS = 250
 PTT_HANG_MS = 250
 LEAD_MS = 60
@@ -467,7 +478,7 @@ class Client:
         self.last_heard = {}
         self.speakers = {}
         self.lock = threading.Lock()
-        self.events = collections.deque()
+        self.events = collections.deque(maxlen=MAX_EVENTS)
 
         self.packetizer = None
         self.gate = None
@@ -483,7 +494,7 @@ class Client:
         self._burst_lock = threading.Lock()
         # RNS starts a new thread for every packet it delivers. Decoding on those directly corrupts decoder
         # state and shuffles frames, so all packet handling goes through one worker, in arrival order.
-        self.inbox = queue.Queue()
+        self.inbox = queue.Queue(maxsize=MAX_INBOX)
         self._reorder = {}
         self._rx_lock = threading.Lock()
         self._rx_stop = threading.Event()
@@ -510,6 +521,9 @@ class Client:
         self._last_profile = None
         self._last_sink = None
         self._last_playout = None
+        self._last_trim = 0.0
+        self._speaker_window_start = 0.0
+        self._speaker_window_count = 0
 
         self._stat_time = time.time()
         self._stat_tx = 0
@@ -651,7 +665,7 @@ class Client:
     def _start_rx_worker(self):
         self._stop_rx_worker()
         with self._rx_lock:
-            self.inbox = queue.Queue()
+            self.inbox = queue.Queue(maxsize=MAX_INBOX)
             self._rx_stop = threading.Event()
             self._rx_thread = threading.Thread(target=self._rx_worker, args=(self.inbox, self._rx_stop), daemon=True)
             self._rx_thread.start()
@@ -659,7 +673,10 @@ class Client:
     def _stop_rx_worker(self):
         with self._rx_lock:
             self._rx_stop.set()
-            self.inbox.put(None)
+            try:
+                self.inbox.put_nowait(None)
+            except queue.Full:
+                pass
             worker = self._rx_thread
         if worker is not None and worker is not threading.current_thread():
             worker.join()
@@ -667,7 +684,10 @@ class Client:
     def packet(self, data, packet):
         with self._rx_lock:
             if not self._rx_stop.is_set():
-                self.inbox.put((data, packet))
+                try:
+                    self.inbox.put_nowait((data, packet))
+                except queue.Full:
+                    self.dropped += 1
 
     def accept_resource(self, advertisement):
         return time.monotonic() < self._room_spec_until and advertisement.get_data_size() <= MAX_CONFIG_BYTES
@@ -694,6 +714,10 @@ class Client:
                     except Exception as error:
                         RNS.log(f"Receive error: {error}", RNS.LOG_ERROR)
                 if not stopped.is_set():
+                    now = time.time()
+                    if now - self._last_trim > 5:
+                        self._last_trim = now
+                        self.trim_speakers()
                     self._release_pending()
         finally:
             while True:
@@ -705,6 +729,9 @@ class Client:
     def _audio(self, member_id, frame, sequence):
         if sequence is None:
             self.handle_frame(member_id, frame, None)
+            return
+        if member_id not in self._reorder and len(self._reorder) >= MAX_SPEAKERS:
+            self.handle_frame(member_id, frame, sequence)
             return
         reorder = self._reorder.setdefault(member_id, {"next": None, "pending": {}})
         expected = reorder["next"]
@@ -815,6 +842,10 @@ class Client:
                 if self.cfg.rx_jitter_ms:
                     with self._burst_lock:
                         self._burst.append((member_id, frame, seq))
+                        if len(self._burst) > MAX_BURST:
+                            overflow = len(self._burst) - MAX_BURST
+                            del self._burst[:overflow]
+                            self.dropped += overflow
                 else:
                     self._audio(member_id, frame, seq)
 
@@ -826,6 +857,8 @@ class Client:
         if not (isinstance(identity_hex, str) and len(identity_hex) == 32):
             return
         if event == "waiting":
+            if identity_hex not in self.pending_calls and len(self.pending_calls) >= MAX_PENDING_CALLS:
+                return
             self.pending_calls[identity_hex] = time.time()
             self.event("call_waiting", identity_hex)
         elif self.pending_calls.pop(identity_hex, None) is not None:
@@ -887,6 +920,8 @@ class Client:
             ptt_jitter_ms,
             flags,
         )
+        if channel.id != self.my_room and channel.id not in self.channels and len(self.channels) >= MAX_CHANNELS:
+            return
         self.channels[channel.id] = channel
         self.event("channel", channel)
 
@@ -919,6 +954,8 @@ class Client:
             bool(text_only),
             True if speaker is None else bool(speaker),
         )
+        if user.sid != self.my_sid and user.sid not in self.users and len(self.users) >= MAX_USERS:
+            return
         self.users[user.sid] = user
         if previous is None:
             self.event("user_joined", user)
@@ -971,9 +1008,20 @@ class Client:
             self.bad_frames += 1
             return
 
+        if member_id not in self.speakers and len(self.speakers) >= MAX_SPEAKERS:
+            self.drop_speaker(min(list(self.speakers), key=lambda m: self.last_heard.get(m, 0)))
+
         with self.lock:
             speaker = self.speakers.get(member_id)
             if speaker is None:
+                now = time.monotonic()
+                if now - self._speaker_window_start > 1.0:
+                    self._speaker_window_start = now
+                    self._speaker_window_count = 0
+                if self._speaker_window_count >= MAX_NEW_SPEAKERS_PER_SECOND:
+                    self.bad_frames += 1
+                    return
+                self._speaker_window_count += 1
                 speaker = Speaker(playout, codec_class)
                 self.speakers[member_id] = speaker
                 RNS.log(f"Hearing member {member_id}", RNS.LOG_DEBUG)
@@ -999,6 +1047,8 @@ class Client:
             samples = samples[:wanted]
 
         self.last_heard[member_id] = time.time()
+        if len(self.heard) >= MAX_HEARD:
+            self.heard.pop()
         self.heard.add(member_id)
         if self.deaf or member_id in self.local_muted:
             return  # still shows who is talking, plays nothing
@@ -1015,6 +1065,15 @@ class Client:
         if self.playout:
             self.playout.finish(member_id)
         self.last_heard.pop(member_id, None)
+
+    def trim_speakers(self):
+        now = time.time()
+        for member_id in list(self.speakers):
+            if now - self.last_heard.get(member_id, 0) > SPEAKER_TTL:
+                self.drop_speaker(member_id)
+        for member_id, reorder in list(self._reorder.items()):
+            if member_id not in self.speakers and not reorder["pending"]:
+                self._reorder.pop(member_id, None)
 
     def _burst_job(self):
         while self.playout and self.cfg.rx_jitter_ms:

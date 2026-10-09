@@ -76,9 +76,16 @@ class CallerFeed:
             self.header = codec_header_byte(type(codec))
             self.frame_ms = frame_ms
             self.samples_per_frame = SAMPLE_RATE * frame_ms // 1000
+            self.max_queued = max(3, -(-frame_ms // Playout.BLOCK_MS) + 1)
+        playout = self.call.playout
+        if playout:
+            playout.set_lead(self.lead_ms())
+
+    def lead_ms(self):
+        return max(Playout.LEAD_MS, self.frame_ms + Playout.BLOCK_MS)
 
     def can_receive(self, source=None):
-        return len(self.queued) < 3
+        return len(self.queued) < self.max_queued
 
     def handle_frame(self, block, source=None):
         self.queued.append(np.asarray(block, dtype="float32")[:, :1])
@@ -271,7 +278,7 @@ class Call:
         self.feed = CallerFeed(self)
         jitter_ms = max(self.dialin.jitter_ms, self.room.ptt_jitter_ms)
         depth_frames = max(1, -(-jitter_ms // self.room.frame_ms))
-        self.playout = Playout(self.room.frame_ms, depth_frames, self.feed)
+        self.playout = Playout(self.room.frame_ms, depth_frames, self.feed, lead_ms=self.feed.lead_ms())
         self.playout.start()
         self.feed.start()
 

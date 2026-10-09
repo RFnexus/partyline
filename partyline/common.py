@@ -42,7 +42,7 @@ def codec_type(header_byte):
 
 ### MAIN ###
 APP_TITLE = "Partyline"
-APP_VERSION = "1.0.0"  
+APP_VERSION = "1.0.5"  
 ASPECT = "room"  
 
 

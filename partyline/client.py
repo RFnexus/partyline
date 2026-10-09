@@ -35,6 +35,11 @@ SAMPLE_RATE = 48000
 FILL_MAX_MS = 2500
 PTT_PREROLL_MS = 250
 PTT_HANG_MS = 250
+LEAD_MS = 60
+BLOCK_MS = 60
+MUSIC_LEAD_MS = 180
+LOCAL_JITTER_MS = 100
+LOCAL_RTT = 0.03
 
 
 class CountingPacketizer(Packetizer):
@@ -412,7 +417,7 @@ class Config:
         self.vad_hang = 0.4
         self.tx_gain_db = 0.0
         self.mic_agc = False
-        self.jitter_ms = 200
+        self.jitter_ms = 150
         self.frames_per_packet = 1
         self.fill_mtu = False
         self.max_jitter = False
@@ -454,6 +459,7 @@ class Client:
         self.can_speak_here = True
         self.ptt_room = False
         self.ptt_jitter_ms = 0
+        self.music_room = False
         self.synced = False
 
         self.channels = {}
@@ -939,6 +945,7 @@ class Client:
         if self.my_room is None:
             self.ptt_room = False
             self.ptt_jitter_ms = 0
+            self.music_room = False
             self.stop_audio()
             self.event("room", None)
             return
@@ -948,6 +955,7 @@ class Client:
         channel = self.channels.get(self.my_room)
         self.ptt_room = bool(channel and channel.ptt)
         self.ptt_jitter_ms = channel.ptt_jitter_ms if self.ptt_room else 0
+        self.music_room = bool(channel and channel.music)
         self.configure(profile, int(frame_ms_value))
         self.apply_transport()
         self.apply_mode()
@@ -1145,7 +1153,9 @@ class Client:
             self.out_sink = LineSink(preferred_device=self.cfg.output, low_latency=self.cfg.low_latency)
         sink_rate = getattr(self.out_sink, "samplerate", None) or SAMPLE_RATE
         max_depth = MAX_JITTER_MS if self.cfg.max_jitter else None
-        self.playout = Playout(frame_ms_value, self.jitter_frames(frame_ms_value), self.out_sink, sink_rate, max_depth)
+        self.playout = Playout(
+            frame_ms_value, self.jitter_frames(frame_ms_value), self.out_sink, sink_rate, max_depth, self.lead_ms(), BLOCK_MS
+        )
         self.playout.start()
         if self.cfg.rx_jitter_ms:
             threading.Thread(target=self._burst_job, daemon=True).start()
@@ -1185,7 +1195,16 @@ class Client:
         self.tx_pipe.start()
 
     def jitter_frames(self, frame_ms_value):
-        return max(1, math.ceil(self.cfg.jitter_ms / frame_ms_value))
+        return max(1, math.ceil(self.path_jitter_ms() / frame_ms_value))
+
+    def lead_ms(self):
+        return MUSIC_LEAD_MS if self.music_room else LEAD_MS
+
+    def path_jitter_ms(self):
+        rtt = getattr(self.link, "rtt", None)
+        if rtt is not None and rtt < LOCAL_RTT and self.hops is not None and self.hops <= 1:
+            return min(self.cfg.jitter_ms, LOCAL_JITTER_MS)
+        return self.cfg.jitter_ms
 
     def _wav_finished(self):
         packetizer = self.packetizer
@@ -1208,10 +1227,11 @@ class Client:
         else:
             self.packetizer.fill_mtu = self.cfg.fill_mtu
             self.packetizer.fill_max_ms = MAX_JITTER_MS if self.cfg.max_jitter else FILL_MAX_MS
-            depth_ms = self.cfg.jitter_ms
+            depth_ms = self.path_jitter_ms()
             cap_ms = MAX_JITTER_MS if self.cfg.max_jitter else Playout.MAX_DEPTH_MS
         if self.playout:
             self.playout.set_max_depth(cap_ms)
+            self.playout.set_lead(self.lead_ms())
             self.playout.set_floor(max(1, math.ceil(depth_ms / self.frame_ms)))
 
     def set_jitter(self, milliseconds):
@@ -1454,7 +1474,7 @@ def add_common_args(parser):
     parser.add_argument("--tx-gain", type=float, default=0.0, help="microphone make-up gain in dB (default 0)")
     parser.add_argument("--agc", action="store_true", help="automatic gain control: normalise mic level while talking")
     parser.add_argument("--low-latency", action="store_true")
-    parser.add_argument("--jitter-ms", type=int, default=200, help="receive jitter in ms more = smoother, later")
+    parser.add_argument("--jitter-ms", type=int, default=150, help="receive jitter in ms more = smoother, later")
     parser.add_argument(
         "--frames-per-packet", type=int, default=1, help="codec frames per packet, higher saves overhead on slow links"
     )

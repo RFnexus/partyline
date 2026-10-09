@@ -1190,7 +1190,7 @@ class ServerInfoDialog(tk.Toplevel):
             audio_text = (
                 f"Audio: {playout.frames_out} frames played, {playout.lost} lost on the way, {playout.concealed} concealed, "
                 f"{playout.dropped + client.dropped} dropped (buffer overrun), {client.bad_frames} bad. "
-                f"Jitter buffer now {playout.depth_ms} ms (floor {client.cfg.jitter_ms} ms, grown {playout.grew} times)."
+                f"Jitter buffer now {playout.depth_ms} ms (floor {playout.depth_min * playout.frame_ms} ms, grown {playout.grew} times)."
             )
         else:
             audio_text = "Audio: not running."

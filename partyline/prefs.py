@@ -18,7 +18,7 @@ DEFAULTS = {
     "output": None,       # speaker name, None = system default
     
     "low_latency": False,
-    "jitter_ms": 200,     # receive jitter buffer depth
+    "jitter_ms": 150,     # receive jitter buffer depth
     "frames_per_packet": 1,  # codec frames per RNS packet, higher saves overhead on slow links
     "fill_mtu": False,    # advanced: pack as many frames as fit the link MTU
     "max_jitter": False,  # advanced: allow a much larger receive jitter buffer

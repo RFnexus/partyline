@@ -151,7 +151,7 @@ class Playout:
     
     MAX_GAP = 64         # missing frames we will will reserve slots for
 
-    def __init__(self, frame_ms, depth_frames, sink, samplerate=48000, max_depth_ms=None):
+    def __init__(self, frame_ms, depth_frames, sink, samplerate=48000, max_depth_ms=None, lead_ms=None, block_ms=None):
         self.frame_ms = frame_ms
         self.frame_seconds = frame_ms / 1000
         self.max_depth_ms = max_depth_ms or self.MAX_DEPTH_MS
@@ -162,11 +162,10 @@ class Playout:
         self.last_shrink_check = time.time()
         self.grew = 0
         self.shrank = 0
-        self.block_frames = max(1, round(self.BLOCK_MS / frame_ms))
-        self.lead_blocks = max(1, round(self.LEAD_MS / (self.block_frames * frame_ms)))
-        self.lead_frames = self.lead_blocks * self.block_frames
-        self.out_samples = max(1, round(samplerate * self.BLOCK_MS / 1000))
-        self.out_lead_blocks = max(1, round(self.LEAD_MS / self.BLOCK_MS))
+        self.block_ms = int(block_ms or self.BLOCK_MS)
+        self.block_frames = max(1, round(self.block_ms / frame_ms))
+        self.out_samples = max(1, round(samplerate * self.block_ms / 1000))
+        self.set_lead(lead_ms or self.LEAD_MS)
         self.out_buffer = None
 
         self.sink = sink
@@ -256,11 +255,9 @@ class Playout:
 
             if not member["active"] and len(frames) >= self.depth + self.lead_frames:
                 member["active"] = True
-            if len(frames) > self.depth + self.lead_frames + self.slack:
-                # a burst bigger than the buffer
-                if not self.grow(len(frames) - self.depth - self.lead_frames):
-                    frames.popleft()  #
-                    self.dropped += 1
+            if len(frames) > self.depth_max + self.lead_frames + self.slack:
+                frames.popleft()
+                self.dropped += 1
             if self.shape is None:
                 self.shape = samples.shape
 
@@ -281,6 +278,12 @@ class Playout:
     def set_max_depth(self, max_depth_ms):
         self.max_depth_ms = max(self.frame_ms, int(max_depth_ms))
         self.depth_max = max(self.depth, math.ceil(self.max_depth_ms / self.frame_ms))
+
+    def set_lead(self, lead_ms):
+        self.lead_ms = int(lead_ms)
+        self.lead_blocks = max(1, round(self.lead_ms / (self.block_frames * self.frame_ms)))
+        self.lead_frames = self.lead_blocks * self.block_frames
+        self.out_lead_blocks = max(1, round(self.lead_ms / self.block_ms))
 
     @property
     def depth_ms(self):
@@ -346,7 +349,7 @@ class Playout:
                     member["ending"] = True
                 else:
                     continue
-            if self.low_water is None or len(frames) < self.low_water:
+            if not member["ending"] and (self.low_water is None or len(frames) < self.low_water):
                 self.low_water = len(frames)
             frame = frames.popleft() if frames else None
             if frame is not None:

@@ -167,7 +167,7 @@ msgid "Configuration file: {0}"
 msgstr "Configuratiebestand: {0}"
 
 msgid "Configure"
-msgstr "Configureren"
+msgstr "Configuratie"
 
 msgid "Connect"
 msgstr "Verbinden"
@@ -608,7 +608,7 @@ msgid "Saved. The change takes effect when Reticulum restarts: {target}."
 msgstr "Opgeslagen. De wijziging gaat in als Reticulum herstart: {target}."
 
 msgid "Self"
-msgstr "Zelf"
+msgstr "Profiel"
 
 msgid "Send"
 msgstr "Verzenden"
@@ -905,8 +905,8 @@ msgstr "{0} heeft de verbinding verbroken"
 
 msgid "{0} hop away"
 msgid_plural "{0} hops away"
-msgstr[0] "{0} hop verderop"
-msgstr[1] "{0} hops verderop"
+msgstr[0] "op {0} hop afstand"
+msgstr[1] "op {0} hops afstand"
 
 msgid "{0} hop to server"
 msgid_plural "{0} hops to server"

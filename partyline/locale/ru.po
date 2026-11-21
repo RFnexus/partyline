@@ -186,7 +186,7 @@ msgid "Configuration file: {0}"
 msgstr "Файл конфигурации: {0}"
 
 msgid "Configure"
-msgstr "Настроить"
+msgstr "Утилиты"
 
 msgid "Connect"
 msgstr "Подключиться"
@@ -575,13 +575,13 @@ msgid "Poke..."
 msgstr "Привлечь внимание..."
 
 msgid "Push To Talk"
-msgstr "Нажать, чтобы говорить"
+msgstr "Нажми, чтобы говорить"
 
 msgid "Push to talk"
-msgstr "Нажать, чтобы говорить"
+msgstr "Нажми, чтобы говорить"
 
 msgid "Push to talk on and off"
-msgstr "Включение и выключение режима «Нажать, чтобы говорить»"
+msgstr "Включение и выключение режима «Нажми, чтобы говорить»"
 
 msgid "Push to talk room, buffer"
 msgstr "Комната с передачей по нажатию, буфер"
@@ -984,9 +984,9 @@ msgstr "вы привлекли внимание {0}: {1}"
 #, python-brace-format
 msgid "you: {0} hop"
 msgid_plural "you: {0} hops"
-msgstr[0] "вы: {0} переход"
-msgstr[1] "вы: {0} перехода"
-msgstr[2] "вы: {0} переходов"
+msgstr[0] "вы: {0} хоп"
+msgstr[1] "вы: {0} хопа"
+msgstr[2] "вы: {0} хопов"
 
 #, python-brace-format
 msgid "{0:+.0f} dB"
@@ -1030,16 +1030,16 @@ msgstr "Пользователь {0} отключился"
 #, python-brace-format
 msgid "{0} hop away"
 msgid_plural "{0} hops away"
-msgstr[0] "на расстоянии {0} перехода"
-msgstr[1] "на расстоянии {0} переходов"
-msgstr[2] "на расстоянии {0} переходов"
+msgstr[0] "на расстоянии {0} хопа"
+msgstr[1] "на расстоянии {0} хопов"
+msgstr[2] "на расстоянии {0} хопов"
 
 #, python-brace-format
 msgid "{0} hop to server"
 msgid_plural "{0} hops to server"
-msgstr[0] "{0} переход до сервера"
-msgstr[1] "{0} перехода до сервера"
-msgstr[2] "{0} переходов до сервера"
+msgstr[0] "{0} хоп до сервера"
+msgstr[1] "{0} хопа до сервера"
+msgstr[2] "{0} хопов до сервера"
 
 #, python-brace-format
 msgid "{0} in, {1} out"

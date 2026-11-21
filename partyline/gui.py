@@ -1896,10 +1896,12 @@ class App:
             self.hotkeys.stop()
 
         self.root.unbind("<KeyPress>")
-        self.root.unbind("<KeyRelease>")
+        self.root.unbind_all("<KeyRelease>")
+        self.root.unbind_all("<FocusOut>")
         if settings["ptt_key"] and not settings["ptt_key"].startswith("mouse:"):
             self.root.bind("<KeyPress>", self.tk_key_press)
-            self.root.bind("<KeyRelease>", self.tk_key_release)
+            self.root.bind_all("<KeyRelease>", self.tk_key_release)
+            self.root.bind_all("<FocusOut>", self.tk_focus_out)
 
         push_to_talk = settings["mode"] == "ptt"
         button_text = _("Push to talk")
@@ -1963,9 +1965,13 @@ class App:
             self.connect_to(entry, chat_only=chat_only)
 
     def connect_to(self, entry, retry=False, chat_only=False):
-        if self.client and not retry:
-            self.disconnect()
+        if retry and self.client:
+            return
         if not retry:
+            if self.client:
+                self.disconnect()
+            else:
+                self.cancel_reconnect()
             self.chat_only = chat_only
         try:
             destination_hash = parse_hash(entry["hash"])
@@ -2261,11 +2267,26 @@ class App:
             return "break"
 
     def tk_key_release(self, event):
-        if self.hotkeys.active or self.typing_in_chat():
+        if self.hotkeys.active:
             return
         if tk_key_name(event.keysym) == self.settings["ptt_key"]:
             self.ptt_release()
             return "break"
+
+    def tk_focus_out(self, event):
+        if self.hotkeys.active or not self.key_down:
+            return
+        self.root.after_idle(self.check_focus_lost)
+
+    def check_focus_lost(self):
+        if self.hotkeys.active or not self.key_down:
+            return
+        try:
+            focused = self.root.focus_displayof()
+        except tk.TclError:
+            focused = None
+        if focused is None:
+            self.ptt_release()
 
     def poll_hotkeys(self):
         try:
@@ -2758,7 +2779,7 @@ class App:
             else:
                 self.log(_("no such room {0!r}").format(rest), "err")
         else:
-            return False
+            self.log(_("unknown command {0}, type /help for the list").format(command), "err")
         return True
 
 

@@ -350,12 +350,6 @@ class Server:
         self.tx_bytes = 0
 
         self.destination = RNS.Destination(identity, RNS.Destination.IN, RNS.Destination.SINGLE, APP_NAME, ASPECT)
-        if self.hidden:
-            self.destination.set_default_app_data(pack_announce("", self.announce_flags()))
-        else:
-            self.destination.set_default_app_data(
-                pack_announce(self.name, self.announce_flags(), self.description, self.language, self.country)
-            )
         self.destination.set_link_established_callback(self.link_established)
 
         # queue
@@ -378,6 +372,14 @@ class Server:
         if self.allowed is not None:
             flags |= ANNOUNCE_ALLOWLIST
         return flags
+
+    def announce_destinations(self):
+        partyline_app_data = pack_announce("", self.announce_flags()) if self.hidden else pack_announce(self.name, self.announce_flags(), self.description, self.language, self.country, self.member_count(), self.max_members)
+
+        self.destination.announce(app_data = partyline_app_data)
+        if self.dialin:
+            self.dialin.announce()
+        
 
 #### MEMBERSHIP ####
 
@@ -1401,10 +1403,8 @@ def main():
     try:
         while True:
             if time.time() - last_announce > args.announce_interval:
-                server.destination.announce()
                 last_announce = time.time()
-                if server.dialin:
-                    server.dialin.announce()
+                server.announce_destinations()
             time.sleep(0.5)
             if time.time() - last_stats >= args.stats_interval:
                 elapsed = time.time() - last_stats

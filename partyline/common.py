@@ -346,7 +346,7 @@ def save_hash_list(path, hashes):
 
 
 
-def pack_announce(server_name, flags=0, description="", language="", country=""):
+def pack_announce(server_name, flags=0, description="", language="", country="", members=0, max_members=0):
     fields = [
         PROTOCOL_VERSION,
         server_name,
@@ -354,6 +354,8 @@ def pack_announce(server_name, flags=0, description="", language="", country="")
         clean_text(description, MAX_ANNOUNCE_DESCRIPTION),
         clean_text(language, MAX_LOCALE),
         clean_text(country, MAX_LOCALE),
+        int(members),
+        int(max_members)
     ]
     while len(fields) > 3 and not fields[-1]:
         fields.pop()
@@ -376,6 +378,8 @@ def unpack_announce(app_data):
     description = clean_text(unpacked[3], MAX_ANNOUNCE_DESCRIPTION) if len(unpacked) > 3 else ""
     language = clean_text(unpacked[4], MAX_LOCALE) if len(unpacked) > 4 else ""
     country = clean_text(unpacked[5], MAX_LOCALE) if len(unpacked) > 5 else ""
+    members = unpacked[6] if len(unpacked) > 6 and isinstance(unpacked[6],int) else None
+    max_members = unpacked[7] if len(unpacked) > 7 and isinstance(unpacked[7],int) else None
     return {
         "name": clean_name(name, "") or None,
         "flags": flags,
@@ -383,6 +387,8 @@ def unpack_announce(app_data):
         "description": description,
         "language": language,
         "country": country,
+        "members": members,
+        "max_members": max_members,
     }
 
 

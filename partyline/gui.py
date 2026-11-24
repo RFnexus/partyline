@@ -214,6 +214,8 @@ class Discovery:
                 "description": announced.get("description") or "",
                 "language": announced.get("language") or "",
                 "country": announced.get("country") or "",
+                "members": announced.get("members"),
+                "max_members": announced.get("max_members"),
             }
 
     def flags_for(self, hash_hex):
@@ -452,7 +454,7 @@ class ConnectDialog(Dialog):
         self.discovered_tip_row = None
 
         self.discovered = ttk.Treeview(
-            discovered_tab, columns=("name", "hash", "locale", "seen"), show="tree headings", selectmode="browse"
+            discovered_tab, columns=("name", "hash", "locale", "seen", "members"), show="tree headings", selectmode="browse"
         )
         self.discovered.heading("#0", text="")
         self.discovered.column("#0", width=28, stretch=False)
@@ -461,6 +463,7 @@ class ConnectDialog(Dialog):
             ("hash", "Address", 210),
             ("locale", "Locale", 70),
             ("seen", "Last seen", 80),
+            ("members", "Members", 50),
         ):
             self.discovered.heading(column, text=heading)
             self.discovered.column(column, width=width, anchor="w")
@@ -527,9 +530,13 @@ class ConnectDialog(Dialog):
         servers = self.app.discovery.snapshot()
         self.notebook.tab(self.discovered_tab, text=_("Discovered ({0})").format(len(servers)))
         for server in servers:
+            RNS.log(server);
             language = server.get("language") or ""
             country = server.get("country") or ""
             description = server.get("description") or ""
+            member_count = "?" if server.get("members") == None else str(server.get("members"))
+            max_members =  "?" if server.get("max_members") == None else str(server.get("max_members"))
+            member_string = member_count + "/" + max_members 
             name = server["name"]
             haystack = " ".join([name, language, country, description]).lower()
             if query and query not in haystack:
@@ -546,7 +553,7 @@ class ConnectDialog(Dialog):
             if server.get("version") != PROTOCOL_VERSION:
                 name += "  (different version)"
             locale = " / ".join(part for part in (language, country) if part)
-            self.discovered.insert("", "end", iid=hash_hex, values=(name, hash_hex, locale, ago), image=icon)
+            self.discovered.insert("", "end", iid=hash_hex, values=(name, hash_hex, locale, ago, member_string), image=icon)
             if description:
                 self.discovered_descriptions[hash_hex] = description
         if selected and self.discovered.exists(selected[0]):
